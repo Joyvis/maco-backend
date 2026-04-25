@@ -2,8 +2,21 @@
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": ".",
   "testEnvironment": "node",
-  "testRegex": ".e2e-spec.ts$",
+  "testRegex": ".*\\.e2e-spec\\.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "^@tenancy/(.*)$": "<rootDir>/../src/tenancy/$1",
+    "^@catalog/(.*)$": "<rootDir>/../src/catalog/$1",
+    "^@commerce/(.*)$": "<rootDir>/../src/commerce/$1",
+    "^@scheduling/(.*)$": "<rootDir>/../src/scheduling/$1",
+    "^@finance/(.*)$": "<rootDir>/../src/finance/$1",
+    "^@inventory/(.*)$": "<rootDir>/../src/inventory/$1",
+    "^@pricing/(.*)$": "<rootDir>/../src/pricing/$1",
+    "^@subscription/(.*)$": "<rootDir>/../src/subscription/$1",
+    "^@support/(.*)$": "<rootDir>/../src/support/$1",
+    "^@notification/(.*)$": "<rootDir>/../src/notification/$1",
+    "^@shared/(.*)$": "<rootDir>/../src/shared/$1"
   }
 }
