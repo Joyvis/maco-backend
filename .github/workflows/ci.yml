@@ -65,7 +65,7 @@ jobs:
         run: npm ci
 
       - name: Run tests with coverage
-        run: npx jest --coverage
+        run: npm run test:coverage
 
   build:
     name: Build
