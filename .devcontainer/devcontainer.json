@@ -10,7 +10,7 @@
     "5432": { "label": "Postgres", "onAutoForward": "silent" }
   },
   "remoteUser": "node",
-  "postCreateCommand": "npm ci",
+  "postCreateCommand": "npm install",
   "customizations": {
     "vscode": {
       "extensions": [
