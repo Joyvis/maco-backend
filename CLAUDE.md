@@ -42,3 +42,35 @@ npm run test:cov    # Coverage report
 - Path aliases (`@tenancy/*`, `@catalog/*`, …, `@shared/*`) are configured in `tsconfig.json` and `jest.moduleNameMapper` — use them for cross-context imports
 - `SharedModule` is `@Global()` — do not re-import it in bounded context modules
 - TypeScript strict mode is on — all `noImplicitAny`, `strictNullChecks`, etc. are enforced
+
+## Docker
+
+Production image is defined in `Dockerfile` (multi-stage: `deps` → `build` → `prod-deps` → `runtime`). The runtime stage is `node:20-alpine`, runs as non-root user `app`, exposes port `3000`, and starts `node dist/main.js`.
+
+```bash
+docker build -t maco-backend .
+docker run --rm -p 3000:3000 maco-backend
+```
+
+`.dockerignore` excludes `node_modules`, `dist`, `.git`, `.devcontainer`, and other host artifacts so the build context stays small. CI builds the image in the `docker` job (after `test` and `build`) using buildx with GitHub Actions layer cache.
+
+## Dev container / Devpod
+
+`.devcontainer/` follows the standard devcontainer spec, so it works with VS Code Dev Containers, GitHub Codespaces, and Devpod.
+
+- `devcontainer.json` — `app` service, workspace at `/workspace`, runs `npm ci` post-create, forwards `3000` (NestJS) and `5432` (Postgres), preinstalls ESLint/Prettier/Jest/Docker VS Code extensions
+- `docker-compose.yml` — two services:
+  - `app` — `mcr.microsoft.com/devcontainers/javascript-node:1-20-bookworm`, `network_mode: service:postgres` (so Postgres is reachable at `localhost:5432`), `node_modules` lives in a named volume to avoid host I/O penalty
+  - `postgres` — `postgres:16-alpine` with creds `maco/maco/maco` and a healthcheck
+- `DATABASE_URL=postgresql://maco:maco@localhost:5432/maco` is injected into the app container
+
+```bash
+# Devpod
+devpod up . --ide vscode      # or --ide none for terminal-only
+devpod ssh maco-backend       # shell into the workspace
+devpod stop maco-backend
+
+# VS Code: "Dev Containers: Reopen in Container"
+```
+
+Inside the container, run the standard `npm run start:dev`, `npm test`, etc.
