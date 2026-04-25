@@ -10,7 +10,7 @@
     "5432": { "label": "Postgres", "onAutoForward": "silent" }
   },
   "remoteUser": "node",
-  "initializeCommand": "cp -n ../.env .devcontainer/.env 2>/dev/null || true",
+  "initializeCommand": "cp -n .env .devcontainer/.env 2>/dev/null || true",
   "postCreateCommand": "npm install",
   "postStartCommand": "npm run start:dev",
   "customizations": {
