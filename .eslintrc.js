@@ -20,13 +20,7 @@ module.exports = {
   ignorePatterns: ['.eslintrc.js'],
   rules: {
     '@typescript-eslint/no-unused-vars': 'error',
-    '@typescript-eslint/explicit-function-return-type': [
-      'warn',
-      {
-        allowExpressions: true,
-        allowTypedFunctionExpressions: true,
-      },
-    ],
+    '@typescript-eslint/explicit-module-boundary-types': 'warn',
     '@typescript-eslint/no-explicit-any': 'warn',
     'import/order': [
       'warn',
