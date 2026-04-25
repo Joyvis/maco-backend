@@ -2,7 +2,6 @@ services:
   app:
     image: mcr.microsoft.com/devcontainers/javascript-node:1-20-bookworm
     volumes:
-      - ../..:/workspaces:cached
       - ..:/workspace:cached
       - node_modules:/workspace/node_modules
     working_dir: /workspace

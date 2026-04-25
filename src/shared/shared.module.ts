@@ -1,5 +1,5 @@
 import { Global, Module } from "@nestjs/common";
 
 @Global()
-@Module({})
+@Module({ exports: [] })
 export class SharedModule {}
