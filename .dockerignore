@@ -1,0 +1,14 @@
+node_modules
+dist
+coverage
+.git
+.github
+.vscode
+.idea
+.devcontainer
+.docker
+.env*
+*.log
+npm-debug.log*
+*.md
+.DS_Store
