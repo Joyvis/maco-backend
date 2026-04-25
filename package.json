@@ -65,9 +65,19 @@
     },
     "collectCoverageFrom": [
       "**/*.ts",
-      "!**/*.spec.ts"
+      "!**/*.spec.ts",
+      "!**/*.module.ts",
+      "!**/main.ts"
     ],
     "coverageDirectory": "../coverage",
+    "coverageThreshold": {
+      "global": {
+        "branches": 80,
+        "functions": 80,
+        "lines": 80,
+        "statements": 80
+      }
+    },
     "testEnvironment": "node",
     "moduleNameMapper": {
       "^@tenancy/(.*)$": "<rootDir>/tenancy/$1",
