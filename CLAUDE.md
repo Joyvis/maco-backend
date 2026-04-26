@@ -96,11 +96,12 @@ docker run --rm -p 3000:3000 maco-prod
 
 `.devcontainer/` follows the standard devcontainer spec, so it works with VS Code Dev Containers, GitHub Codespaces, and Devpod.
 
-- `devcontainer.json` — `app` service, workspace at `/workspace`, runs `npm ci` post-create, forwards `3000` (NestJS) and `5432` (Postgres), preinstalls ESLint/Prettier/Jest/Docker VS Code extensions
-- `docker-compose.yml` — two services:
-  - `app` — `mcr.microsoft.com/devcontainers/javascript-node:1-20-bookworm`, `network_mode: service:postgres` (so Postgres is reachable at `localhost:5432`), `node_modules` lives in a named volume to avoid host I/O penalty
-  - `postgres` — `postgres:16-alpine` with creds `maco/maco/maco` and a healthcheck
-- `DATABASE_URL=postgresql://maco:maco@localhost:5432/maco` is injected into the app container
+- `devcontainer.json` — `app` service, workspace at `/workspace`, runs `npm install` post-create, forwards `3000` (NestJS) and `5432` (Postgres), preinstalls ESLint/Prettier/Jest/Docker VS Code extensions
+- `docker-compose.yml` — two services on a shared `dev` bridge network:
+  - `app` — `mcr.microsoft.com/devcontainers/javascript-node:1-20-bookworm`, loads `.env` if present, `node_modules` lives in a named volume to avoid host I/O penalty
+  - `db` — `postgres:16-alpine` with creds from env vars (default `maco/maco/maco`) and a healthcheck
+- `DATABASE_URL=postgresql://maco:maco@db:5432/maco` — Postgres is reachable at hostname `db` inside the container network
+- Copy `.env.example` → `.env` and customise before first `devpod up`
 
 ```bash
 # Devpod
