@@ -18,6 +18,7 @@ NestJS backend for the MacoSaaS Agent Orchestrator.
 src/
   app.module.ts          # Root module — imports all 11 feature modules
   shared/                # Global SharedModule (guards, decorators, filters, interceptors)
+    cqrs/              # BaseCommand, BaseEvent, BaseCommandHandler, BaseEventHandler
   tenancy/               # Auth, Users, Roles, Tenants
   catalog/               # Services, Products, Staff Qualifications
   commerce/              # Sale Orders, Payments, Checkout
@@ -75,6 +76,18 @@ echo "npx lint-staged" > .husky/pre-commit
 
 The pre-commit hook runs `eslint --fix` + `prettier --write` on staged `.ts` files
 via lint-staged (configured in `package.json`).
+
+## CQRS
+
+`@nestjs/cqrs` is installed and `CqrsModule.forRoot()` is registered globally in `AppModule`.
+
+- Base classes live in `src/shared/cqrs/` — import via `@shared/cqrs/base-command`, etc.
+- Pattern: `Command → @CommandHandler → entity mutation → EventBus.publish(event) → @EventsHandler`
+- Commands extend `BaseCommand` (requires `tenant_id` + `user_id`); events extend `BaseEvent` (requires `tenant_id`, `source_command`, `correlation_id`)
+- `BaseEventHandler` wraps `process()` with 3-retry exponential backoff (100 → 200 → 400 ms); never re-throws
+- Feature modules must import `CqrsModule` (not `forRoot`) and register handlers as providers — see `TenancyModule` for reference
+- `ICommandHandler` is a conditional type in v11 — do **not** use `implements ICommandHandler<T>`; use `extends BaseCommandHandler<T>` instead
+- E2E tests must call `await app.init()` after `compile()` so `onApplicationBootstrap` registers handlers
 
 ## Docker
 

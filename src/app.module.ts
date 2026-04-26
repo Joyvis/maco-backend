@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CqrsModule } from '@nestjs/cqrs';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -16,6 +17,7 @@ import { TenancyModule } from './tenancy/tenancy.module';
 
 @Module({
   imports: [
+    CqrsModule.forRoot(),
     SharedModule,
     TenancyModule,
     CatalogModule,
