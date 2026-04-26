@@ -3,6 +3,7 @@ import { Migrator } from '@mikro-orm/migrations';
 import { MikroOrmModule, MikroOrmMiddleware } from '@mikro-orm/nestjs';
 import { PostgreSqlDriver } from '@mikro-orm/postgresql';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { CqrsModule } from '@nestjs/cqrs';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -39,6 +40,7 @@ import { TenancyModule } from './tenancy/tenancy.module';
         extensions: [Migrator],
       }),
     }),
+    CqrsModule.forRoot(),
     SharedModule,
     TenancyModule,
     CatalogModule,
