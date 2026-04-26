@@ -28,12 +28,8 @@ describe('CurrentUser decorator', () => {
       switchToHttp: () => ({ getRequest: () => mockRequest }),
     } as unknown as ExecutionContext;
 
-    const applied = (CurrentUser as unknown as () => typeof decorator)();
-    const decorator = applied as unknown as (
-      target: object,
-      key: string,
-      index: number,
-    ) => void;
+    type ParamDecorator = (target: object, key: string, index: number) => void;
+    const decorator = (CurrentUser as unknown as () => ParamDecorator)();
     const factory = extractDecoratorFactory(decorator);
     const result = factory(undefined, mockCtx);
 

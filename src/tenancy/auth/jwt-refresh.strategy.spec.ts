@@ -1,5 +1,5 @@
-import { JwtRefreshStrategy } from './jwt-refresh.strategy';
 import { JwtPayload } from './jwt-payload.interface';
+import { JwtRefreshStrategy } from './jwt-refresh.strategy';
 
 describe('JwtRefreshStrategy', () => {
   it('validate: returns the payload as-is', () => {
