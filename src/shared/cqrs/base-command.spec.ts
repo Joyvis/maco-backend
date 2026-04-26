@@ -29,4 +29,10 @@ describe('BaseCommand', () => {
       'tenant_id is required',
     );
   });
+
+  it('throws when user_id is null-ish', () => {
+    expect(() => new TestCommand('tenant-uuid', null as unknown as string)).toThrow(
+      'user_id is required',
+    );
+  });
 });

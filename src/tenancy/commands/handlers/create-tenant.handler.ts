@@ -1,5 +1,3 @@
-import { randomUUID } from 'crypto';
-
 import { CommandHandler, EventBus } from '@nestjs/cqrs';
 import { BaseCommandHandler } from '@shared/cqrs/base-command-handler';
 
@@ -13,7 +11,7 @@ export class CreateTenantHandler extends BaseCommandHandler<CreateTenantCommand>
   }
 
   execute(command: CreateTenantCommand): Promise<void> {
-    const event = new TenantCreatedEvent(command.tenant_id, randomUUID(), command.name);
+    const event = new TenantCreatedEvent(command.tenant_id, command.correlation_id, command.name);
     this.eventBus.publish(event);
     return Promise.resolve();
   }

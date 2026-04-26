@@ -26,7 +26,7 @@ describe('CreateTenantHandler', () => {
     expect(publishedEvent).toBeInstanceOf(TenantCreatedEvent);
     expect(publishedEvent.tenant_id).toBe('tenant-uuid');
     expect(publishedEvent.source_command).toBe('CreateTenantCommand');
-    expect(publishedEvent.correlation_id).toBeTruthy();
+    expect(publishedEvent.correlation_id).toBe(command.correlation_id);
     expect(publishedEvent.name).toBe('Acme Corp');
     expect(publishedEvent.timestamp).toBeInstanceOf(Date);
   });
