@@ -1,4 +1,4 @@
-import { BaseCommand } from "@shared/cqrs/base-command";
+import { BaseCommand } from '@shared/cqrs/base-command';
 
 export class CreateTenantCommand extends BaseCommand {
   readonly name: string;

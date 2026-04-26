@@ -1,5 +1,6 @@
 // @ts-check
 import eslint from '@eslint/js';
+import importPlugin from 'eslint-plugin-import';
 import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
@@ -10,6 +11,8 @@ export default tseslint.config(
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
+  importPlugin.flatConfigs.recommended,
+  importPlugin.flatConfigs.typescript,
   eslintPluginPrettierRecommended,
   {
     languageOptions: {
@@ -29,7 +32,20 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-unsafe-argument': 'warn',
-      "prettier/prettier": ["error", { endOfLine: "auto" }],
+      // Enforce explicit return types on exported (public) API surface only
+      '@typescript-eslint/explicit-module-boundary-types': 'warn',
+      'prettier/prettier': ['error', { endOfLine: 'auto' }],
+      'import/order': [
+        'warn',
+        {
+          groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
+          'newlines-between': 'always',
+          alphabetize: { order: 'asc', caseInsensitive: true },
+        },
+      ],
+      // TypeScript path aliases (@tenancy/*, @shared/*, etc.) are not understood by
+      // eslint-plugin-import's default resolver; disable to avoid false positives.
+      'import/no-unresolved': 'off',
     },
   },
 );

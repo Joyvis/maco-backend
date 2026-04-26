@@ -1,9 +1,16 @@
+# maco-backend
+
+NestJS backend for the MacoSaaS Agent Orchestrator.
+
 ## Stack
 
 - **Runtime**: Node.js >= 20 LTS (see `.nvmrc`)
 - **Framework**: NestJS v11 with `@nestjs/platform-express`
 - **Language**: TypeScript 5 (strict mode)
 - **Package manager**: npm
+- **Linting**: ESLint 9 (flat config) + `typescript-eslint` + `eslint-plugin-import` + `eslint-plugin-prettier`
+- **Formatting**: Prettier 3 (config in `.prettierrc`)
+- **Pre-commit**: Husky 9 + lint-staged
 
 ## Layout
 
@@ -28,12 +35,15 @@ test/                    # E2E tests
 ## Commands
 
 ```bash
-npm run start:dev   # Start dev server with watch mode
-npm run build       # Compile to dist/
-npm run lint        # ESLint (auto-fix)
-npm run test        # Jest unit tests
-npm run test:e2e    # Jest E2E tests
-npm run test:cov    # Coverage report
+npm run start:dev     # Start dev server with watch mode
+npm run build         # Compile to dist/
+npm run lint          # ESLint (report violations, fail on warnings)
+npm run lint:fix      # ESLint --fix
+npm run format        # Prettier --write
+npm run format:check  # Prettier --check
+npm run test          # Jest unit tests
+npm run test:e2e      # Jest E2E tests
+npm run test:cov      # Coverage report
 ```
 
 ## Conventions
@@ -43,6 +53,29 @@ npm run test:cov    # Coverage report
 - Path aliases (`@tenancy/*`, `@catalog/*`, …, `@shared/*`) are configured in `tsconfig.json` and `jest.moduleNameMapper` — use them for cross-context imports
 - `SharedModule` is `@Global()` — do not re-import it in bounded context modules
 - TypeScript strict mode is on — all `noImplicitAny`, `strictNullChecks`, etc. are enforced
+- Single quotes, 2-space indent, 100-char line width (Prettier)
+- `@typescript-eslint/no-explicit-any` → error; `no-unused-vars` → error
+- Import order enforced by `eslint-plugin-import` (builtin → external → internal)
+- Editor settings defined in `.editorconfig`
+
+## Setup after clone
+
+```bash
+npm install        # installs deps and runs `husky` via prepare script
+```
+
+The `prepare` script runs `husky` automatically on `npm install`, which wires up the
+pre-commit hook. The `.husky/pre-commit` file must exist (committed to the repo) for
+the hook to run. To initialize it for the first time:
+
+```bash
+npx husky init
+# then overwrite .husky/pre-commit with:
+echo "npx lint-staged" > .husky/pre-commit
+```
+
+The pre-commit hook runs `eslint --fix` + `prettier --write` on staged `.ts` files
+via lint-staged (configured in `package.json`).
 
 ## CQRS
 
@@ -76,11 +109,12 @@ docker run --rm -p 3000:3000 maco-prod
 
 `.devcontainer/` follows the standard devcontainer spec, so it works with VS Code Dev Containers, GitHub Codespaces, and Devpod.
 
-- `devcontainer.json` — `app` service, workspace at `/workspace`, runs `npm ci` post-create, forwards `3000` (NestJS) and `5432` (Postgres), preinstalls ESLint/Prettier/Jest/Docker VS Code extensions
-- `docker-compose.yml` — two services:
-  - `app` — `mcr.microsoft.com/devcontainers/javascript-node:1-20-bookworm`, `network_mode: service:postgres` (so Postgres is reachable at `localhost:5432`), `node_modules` lives in a named volume to avoid host I/O penalty
-  - `postgres` — `postgres:16-alpine` with creds `maco/maco/maco` and a healthcheck
-- `DATABASE_URL=postgresql://maco:maco@localhost:5432/maco` is injected into the app container
+- `devcontainer.json` — `app` service, workspace at `/workspace`, runs `npm install` post-create, forwards `3000` (NestJS) and `5432` (Postgres), preinstalls ESLint/Prettier/Jest/Docker VS Code extensions
+- `docker-compose.yml` — two services on a shared `dev` bridge network:
+  - `app` — `mcr.microsoft.com/devcontainers/javascript-node:1-20-bookworm`, loads `.env` if present, `node_modules` lives in a named volume to avoid host I/O penalty
+  - `db` — `postgres:16-alpine` with creds from env vars (default `maco/maco/maco`) and a healthcheck
+- `DATABASE_URL=postgresql://maco:maco@db:5432/maco` — Postgres is reachable at hostname `db` inside the container network
+- Copy `.env.example` → `.env` and customise before first `devpod up`
 
 ```bash
 # Devpod

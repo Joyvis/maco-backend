@@ -1,13 +1,12 @@
-import { Logger } from "@nestjs/common";
-import { IEventHandler } from "@nestjs/cqrs";
-import { BaseEvent } from "./base-event";
+import { Logger } from '@nestjs/common';
+import { IEventHandler } from '@nestjs/cqrs';
+
+import { BaseEvent } from './base-event';
 
 const BACKOFF_MS = [100, 200, 400] as const;
 const MAX_RETRIES = 3;
 
-export abstract class BaseEventHandler<
-  T extends BaseEvent,
-> implements IEventHandler<T> {
+export abstract class BaseEventHandler<T extends BaseEvent> implements IEventHandler<T> {
   protected readonly logger = new Logger(this.constructor.name);
 
   async handle(event: T): Promise<void> {

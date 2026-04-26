@@ -1,18 +1,19 @@
-import { Module } from "@nestjs/common";
-import { CqrsModule } from "@nestjs/cqrs";
-import { AppController } from "./app.controller";
-import { AppService } from "./app.service";
-import { SharedModule } from "./shared/shared.module";
-import { TenancyModule } from "./tenancy/tenancy.module";
-import { CatalogModule } from "./catalog/catalog.module";
-import { CommerceModule } from "./commerce/commerce.module";
-import { SchedulingModule } from "./scheduling/scheduling.module";
-import { FinanceModule } from "./finance/finance.module";
-import { InventoryModule } from "./inventory/inventory.module";
-import { PricingModule } from "./pricing/pricing.module";
-import { SubscriptionModule } from "./subscription/subscription.module";
-import { SupportModule } from "./support/support.module";
-import { NotificationModule } from "./notification/notification.module";
+import { Module } from '@nestjs/common';
+import { CqrsModule } from '@nestjs/cqrs';
+
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import { CatalogModule } from './catalog/catalog.module';
+import { CommerceModule } from './commerce/commerce.module';
+import { FinanceModule } from './finance/finance.module';
+import { InventoryModule } from './inventory/inventory.module';
+import { NotificationModule } from './notification/notification.module';
+import { PricingModule } from './pricing/pricing.module';
+import { SchedulingModule } from './scheduling/scheduling.module';
+import { SharedModule } from './shared/shared.module';
+import { SubscriptionModule } from './subscription/subscription.module';
+import { SupportModule } from './support/support.module';
+import { TenancyModule } from './tenancy/tenancy.module';
 
 @Module({
   imports: [
