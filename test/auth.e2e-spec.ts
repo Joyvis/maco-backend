@@ -6,6 +6,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 
 import { AppModule } from '../src/app.module';
+import { RefreshToken } from '../src/tenancy/entities/refresh-token.entity';
 import { User, UserState } from '../src/tenancy/entities/user.entity';
 
 describe('Auth (e2e)', () => {
@@ -57,6 +58,13 @@ describe('Auth (e2e)', () => {
     expect(body['refresh_token']).toEqual(expect.any(String));
     expect(body['token_type']).toBe('Bearer');
     expect(body['expires_in']).toBe(900);
+
+    // AC1: verify refresh_tokens row was persisted to DB
+    em.clear();
+    const storedToken = await em.findOne(RefreshToken, { user: USER_ID }, { filters: false });
+    expect(storedToken).not.toBeNull();
+    expect(storedToken!.token_hash).toEqual(expect.any(String));
+    expect(storedToken!.expires_at.getTime()).toBeGreaterThan(Date.now());
   });
 
   // AC2: wrong password → 401

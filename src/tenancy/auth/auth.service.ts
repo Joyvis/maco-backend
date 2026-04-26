@@ -31,13 +31,13 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (user.state !== UserState.ACTIVE) {
+      throw new ForbiddenException('Account is not active');
+    }
+
     const passwordValid = await bcrypt.compare(dto.password, user.password_hash);
     if (!passwordValid) {
       throw new UnauthorizedException('Invalid credentials');
-    }
-
-    if (user.state !== UserState.ACTIVE) {
-      throw new ForbiddenException('Account is not active');
     }
 
     return this.generateTokenPair(user);
@@ -54,11 +54,9 @@ export class AuthService {
     }
 
     const userId = payload.sub;
-    const ttlSeconds = parseInt(process.env['JWT_REFRESH_TTL'] ?? '604800', 10);
-    const since = new Date(Date.now() - (ttlSeconds + 86400) * 1000);
 
     const tokens = await this.refreshTokenRepo.find(
-      { user: userId, created_at: { $gte: since } },
+      { user: userId, expires_at: { $gte: new Date() } },
       { filters: false },
     );
 
