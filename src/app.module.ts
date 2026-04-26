@@ -1,9 +1,8 @@
-import { UnderscoreNamingStrategy } from '@mikro-orm/core';
-import { Migrator } from '@mikro-orm/migrations';
 import { MikroOrmModule, MikroOrmMiddleware } from '@mikro-orm/nestjs';
-import { PostgreSqlDriver } from '@mikro-orm/postgresql';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
+
+import mikroOrmConfig from '../mikro-orm.config';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -21,25 +20,7 @@ import { TenancyModule } from './tenancy/tenancy.module';
 
 @Module({
   imports: [
-    MikroOrmModule.forRootAsync({
-      useFactory: () => ({
-        driver: PostgreSqlDriver,
-        host: process.env.DATABASE_HOST ?? 'localhost',
-        port: parseInt(process.env.DATABASE_PORT ?? '5432', 10),
-        dbName: process.env.DATABASE_NAME ?? 'maco',
-        user: process.env.DATABASE_USER ?? 'maco',
-        password: process.env.DATABASE_PASSWORD ?? 'maco',
-        entities: ['dist/**/*.entity.js'],
-        entitiesTs: ['src/**/*.entity.ts'],
-        namingStrategy: UnderscoreNamingStrategy,
-        debug: process.env.MIKRO_ORM_DEBUG === 'true',
-        migrations: {
-          path: 'dist/migrations',
-          pathTs: 'src/migrations',
-        },
-        extensions: [Migrator],
-      }),
-    }),
+    MikroOrmModule.forRoot(mikroOrmConfig),
     CqrsModule.forRoot(),
     SharedModule,
     TenancyModule,
