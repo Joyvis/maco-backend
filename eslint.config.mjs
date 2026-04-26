@@ -32,6 +32,8 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-unsafe-argument': 'warn',
+      // Enforce explicit return types on exported (public) API surface only
+      '@typescript-eslint/explicit-module-boundary-types': 'warn',
       'prettier/prettier': ['error', { endOfLine: 'auto' }],
       'import/order': [
         'warn',
@@ -41,6 +43,8 @@ export default tseslint.config(
           alphabetize: { order: 'asc', caseInsensitive: true },
         },
       ],
+      // TypeScript path aliases (@tenancy/*, @shared/*, etc.) are not understood by
+      // eslint-plugin-import's default resolver; disable to avoid false positives.
       'import/no-unresolved': 'off',
     },
   },
