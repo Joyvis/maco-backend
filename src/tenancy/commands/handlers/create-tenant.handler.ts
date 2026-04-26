@@ -1,8 +1,8 @@
-import { CommandHandler, EventBus } from '@nestjs/cqrs';
-import { randomUUID } from 'crypto';
-import { BaseCommandHandler } from '@shared/cqrs/base-command-handler';
-import { CreateTenantCommand } from '../create-tenant.command';
-import { TenantCreatedEvent } from '../../events/tenant-created.event';
+import { CommandHandler, EventBus } from "@nestjs/cqrs";
+import { randomUUID } from "crypto";
+import { BaseCommandHandler } from "@shared/cqrs/base-command-handler";
+import { CreateTenantCommand } from "../create-tenant.command";
+import { TenantCreatedEvent } from "../../events/tenant-created.event";
 
 @CommandHandler(CreateTenantCommand)
 export class CreateTenantHandler extends BaseCommandHandler<CreateTenantCommand> {
@@ -10,8 +10,13 @@ export class CreateTenantHandler extends BaseCommandHandler<CreateTenantCommand>
     super();
   }
 
-  async execute(command: CreateTenantCommand): Promise<void> {
-    const event = new TenantCreatedEvent(command.tenant_id, randomUUID(), command.name);
+  execute(command: CreateTenantCommand): Promise<void> {
+    const event = new TenantCreatedEvent(
+      command.tenant_id,
+      randomUUID(),
+      command.name,
+    );
     this.eventBus.publish(event);
+    return Promise.resolve();
   }
 }
