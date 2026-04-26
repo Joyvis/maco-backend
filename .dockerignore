@@ -6,12 +6,9 @@ coverage
 .vscode
 .idea
 .devcontainer
-.env
-.env.*
+.docker
+.env*
 *.log
 npm-debug.log*
+*.md
 .DS_Store
-README.md
-CONTRIBUTING.md
-CLAUDE.md
-test

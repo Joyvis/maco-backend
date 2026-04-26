@@ -2,23 +2,32 @@
 
 ARG NODE_VERSION=20
 
-FROM node:${NODE_VERSION}-alpine AS deps
+# ── base ──────────────────────────────────────────────────────────────────────
+FROM node:${NODE_VERSION}-alpine AS base
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-FROM node:${NODE_VERSION}-alpine AS build
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# ── development ───────────────────────────────────────────────────────────────
+FROM base AS development
+ENV NODE_ENV=development \
+    PORT=3000
 COPY . .
+EXPOSE $PORT
+CMD ["npm", "run", "start:dev"]
+
+# ── build ─────────────────────────────────────────────────────────────────────
+FROM development AS build
 RUN npm run build
 
+# ── prod-deps ─────────────────────────────────────────────────────────────────
 FROM node:${NODE_VERSION}-alpine AS prod-deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
-FROM node:${NODE_VERSION}-alpine AS runtime
+# ── production ────────────────────────────────────────────────────────────────
+FROM node:${NODE_VERSION}-alpine AS production
 WORKDIR /app
 ENV NODE_ENV=production \
     PORT=3000
@@ -27,5 +36,5 @@ COPY --from=prod-deps --chown=app:app /app/node_modules ./node_modules
 COPY --from=build --chown=app:app /app/dist ./dist
 COPY --chown=app:app package.json ./
 USER app
-EXPOSE 3000
+EXPOSE $PORT
 CMD ["node", "dist/main.js"]

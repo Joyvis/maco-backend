@@ -58,11 +58,16 @@ npm run test:cov    # Coverage report
 
 ## Docker
 
-Production image is defined in `Dockerfile` (multi-stage: `deps` → `build` → `prod-deps` → `runtime`). The runtime stage is `node:20-alpine`, runs as non-root user `app`, exposes port `3000`, and starts `node dist/main.js`.
+Multi-stage `Dockerfile` with four named stages: `base` → `development` → `build` → `prod-deps` → `production`. The `production` stage is `node:20-alpine`, runs as non-root user `app`, exposes port `3000`, and starts `node dist/main.js`.
 
 ```bash
-docker build -t maco-backend .
-docker run --rm -p 3000:3000 maco-backend
+# Development image (hot-reload via nest start --watch)
+docker build --target development -t maco-dev .
+docker run --rm -p 3000:3000 maco-dev
+
+# Production image
+docker build --target production -t maco-prod .
+docker run --rm -p 3000:3000 maco-prod
 ```
 
 `.dockerignore` excludes `node_modules`, `dist`, `.git`, `.devcontainer`, and other host artifacts so the build context stays small. CI builds the image in the `docker` job (after `test` and `build`) using buildx with GitHub Actions layer cache.
