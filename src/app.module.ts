@@ -1,5 +1,8 @@
-import { Module } from '@nestjs/common';
+import { MikroOrmModule, MikroOrmMiddleware } from '@mikro-orm/nestjs';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
+
+import mikroOrmConfig from '../mikro-orm.config';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -17,6 +20,7 @@ import { TenancyModule } from './tenancy/tenancy.module';
 
 @Module({
   imports: [
+    MikroOrmModule.forRoot(mikroOrmConfig),
     CqrsModule.forRoot(),
     SharedModule,
     TenancyModule,
@@ -33,4 +37,8 @@ import { TenancyModule } from './tenancy/tenancy.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(MikroOrmMiddleware).forRoutes('*');
+  }
+}

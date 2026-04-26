@@ -35,16 +35,31 @@ test/                    # E2E tests
 ## Commands
 
 ```bash
-npm run start:dev     # Start dev server with watch mode
-npm run build         # Compile to dist/
-npm run lint          # ESLint (report violations, fail on warnings)
-npm run lint:fix      # ESLint --fix
-npm run format        # Prettier --write
-npm run format:check  # Prettier --check
-npm run test          # Jest unit tests
-npm run test:e2e      # Jest E2E tests
-npm run test:cov      # Coverage report
+npm run start:dev       # Start dev server with watch mode
+npm run build           # Compile to dist/
+npm run lint            # ESLint (report violations, fail on warnings)
+npm run lint:fix        # ESLint --fix
+npm run format          # Prettier --write
+npm run format:check    # Prettier --check
+npm run test            # Jest unit tests
+npm run test:e2e        # Jest E2E tests
+npm run test:cov        # Coverage report
+npm run migration:create  # Generate a migration from entity diff
+npm run migration:up      # Apply pending migrations
+npm run migration:down    # Revert last migration
+npm run migration:fresh   # Drop + re-apply all migrations
 ```
+
+## MikroORM
+
+- **Version**: MikroORM v6 (CommonJS; v7 is ESM-only and incompatible with this project's tsconfig)
+- **Config**: `mikro-orm.config.ts` (root) — consumed by both the NestJS module and the CLI
+- **Entities**: glob `src/**/*.entity.ts`; discovered automatically — no manual registration needed
+- **Base entities**: `src/shared/entities/base.entity.ts` (id/created_at/updated_at) and `tenant-scoped.entity.ts` (+tenant_id + global `tenant` filter)
+- **Migrations**: live in `src/migrations/`; generated via `npm run migration:create`
+- **Tenant filter**: enabled by default on all `TenantScopedEntity` subclasses. Set params: `em.setFilterParams('tenant', { tenantId })`. Disable per-query: `em.find(Entity, {}, { filters: { tenant: false } })`
+- **RequestContext**: `MikroOrmMiddleware` is applied globally in `AppModule` — Identity Map is scoped per HTTP request
+- **SQLite in tests**: use `@mikro-orm/sqlite` in-memory for integration tests; avoid `defaultRaw: 'now()'` in schema creation because SQLite uses `CURRENT_TIMESTAMP` instead
 
 ## Conventions
 
