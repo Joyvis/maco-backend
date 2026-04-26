@@ -96,6 +96,7 @@
       "**/*.ts",
       "!**/*.spec.ts",
       "!**/*.module.ts",
+      "!**/index.ts",
       "!**/main.ts"
     ],
     "coverageDirectory": "../coverage",
