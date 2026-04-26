@@ -1,9 +1,16 @@
+# maco-backend
+
+NestJS backend for the MacoSaaS Agent Orchestrator.
+
 ## Stack
 
 - **Runtime**: Node.js >= 20 LTS (see `.nvmrc`)
 - **Framework**: NestJS v11 with `@nestjs/platform-express`
 - **Language**: TypeScript 5 (strict mode)
 - **Package manager**: npm
+- **Linting**: ESLint 9 (flat config) + `typescript-eslint` + `eslint-plugin-import` + `eslint-plugin-prettier`
+- **Formatting**: Prettier 3 (config in `.prettierrc`)
+- **Pre-commit**: Husky 9 + lint-staged
 
 ## Layout
 
@@ -27,12 +34,15 @@ test/                    # E2E tests
 ## Commands
 
 ```bash
-npm run start:dev   # Start dev server with watch mode
-npm run build       # Compile to dist/
-npm run lint        # ESLint (auto-fix)
-npm run test        # Jest unit tests
-npm run test:e2e    # Jest E2E tests
-npm run test:cov    # Coverage report
+npm run start:dev     # Start dev server with watch mode
+npm run build         # Compile to dist/
+npm run lint          # ESLint (report violations, fail on warnings)
+npm run lint:fix      # ESLint --fix
+npm run format        # Prettier --write
+npm run format:check  # Prettier --check
+npm run test          # Jest unit tests
+npm run test:e2e      # Jest E2E tests
+npm run test:cov      # Coverage report
 ```
 
 ## Conventions
@@ -42,6 +52,29 @@ npm run test:cov    # Coverage report
 - Path aliases (`@tenancy/*`, `@catalog/*`, …, `@shared/*`) are configured in `tsconfig.json` and `jest.moduleNameMapper` — use them for cross-context imports
 - `SharedModule` is `@Global()` — do not re-import it in bounded context modules
 - TypeScript strict mode is on — all `noImplicitAny`, `strictNullChecks`, etc. are enforced
+- Single quotes, 2-space indent, 100-char line width (Prettier)
+- `@typescript-eslint/no-explicit-any` → error; `no-unused-vars` → error
+- Import order enforced by `eslint-plugin-import` (builtin → external → internal)
+- Editor settings defined in `.editorconfig`
+
+## Setup after clone
+
+```bash
+npm install        # installs deps and runs `husky` via prepare script
+```
+
+The `prepare` script runs `husky` automatically on `npm install`, which wires up the
+pre-commit hook. The `.husky/pre-commit` file must exist (committed to the repo) for
+the hook to run. To initialize it for the first time:
+
+```bash
+npx husky init
+# then overwrite .husky/pre-commit with:
+echo "npx lint-staged" > .husky/pre-commit
+```
+
+The pre-commit hook runs `eslint --fix` + `prettier --write` on staged `.ts` files
+via lint-staged (configured in `package.json`).
 
 ## Docker
 
