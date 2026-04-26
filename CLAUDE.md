@@ -141,3 +141,16 @@ devpod stop maco-backend
 ```
 
 Inside the container, run the standard `npm run start:dev`, `npm test`, etc.
+
+## JWT Authentication
+
+`@nestjs/jwt`, `@nestjs/passport`, `passport-jwt`, and `bcrypt` are installed.
+
+- Auth module lives in `src/tenancy/auth/` — imported by `TenancyModule`
+- **Global guard**: `JwtAuthGuard` is registered via `APP_GUARD` in `AuthModule` — all routes are protected by default
+- **@Public()**: decorator in `src/tenancy/auth/public.decorator.ts` — skip auth for a handler or controller
+- **@CurrentUser()**: param decorator in `src/tenancy/auth/current-user.decorator.ts` — injects `{ id, tenantId, roles }`
+- **TenantGuard**: use `@UseGuards(TenantGuard)` on routes with a `:tenantId` path param to enforce cross-tenant isolation
+- Entities: `User` and `UserRole` live in `src/tenancy/entities/` — the `users` and `user_roles` tables are created here
+- Refresh tokens: stored hashed (bcrypt) in `refresh_tokens` table; token rotation is enforced; replay detection revokes all user tokens
+- Env vars required: `JWT_SECRET`, `JWT_REFRESH_SECRET` — TTLs default to 900s / 604800s (see `.env.example`)
