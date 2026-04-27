@@ -1,16 +1,18 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 
-import { AdminCreateTenantDto } from './dto/admin-create-tenant.dto';
+import { Public } from './auth/public.decorator';
 import { SignUpResponseDto } from './dto/sign-up-response.dto';
+import { SignUpDto } from './dto/sign-up.dto';
 import { TenancyService } from './tenancy.service';
 
-@Controller('tenancy')
-export class TenancyController {
+@Controller()
+export class SignUpController {
   constructor(private readonly tenancyService: TenancyService) {}
 
-  @Post('create')
+  @Public()
+  @Post('sign-up')
   @HttpCode(HttpStatus.CREATED)
-  adminCreate(@Body() dto: AdminCreateTenantDto): Promise<SignUpResponseDto> {
-    return this.tenancyService.adminCreateTenant(dto);
+  signUp(@Body() dto: SignUpDto): Promise<SignUpResponseDto> {
+    return this.tenancyService.registerTenant(dto);
   }
 }

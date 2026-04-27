@@ -24,7 +24,7 @@ export class AuthService {
   async login(dto: LoginDto): Promise<AuthResponseDto> {
     const user = await this.userRepo.findOne(
       { email: dto.email },
-      { filters: { tenant: false }, populate: ['roles'] },
+      { filters: { tenant: false }, populate: ['roles.role'] as never },
     );
 
     if (!user) {
@@ -85,14 +85,14 @@ export class AuthService {
 
     const user = await this.userRepo.findOneOrFail(
       { id: userId },
-      { filters: { tenant: false }, populate: ['roles'] },
+      { filters: { tenant: false }, populate: ['roles.role'] as never },
     );
 
     return this.generateTokenPair(user);
   }
 
   private async generateTokenPair(user: User): Promise<AuthResponseDto> {
-    const roles = user.roles.isInitialized() ? user.roles.getItems().map((ur) => ur.role) : [];
+    const roles = user.roles.isInitialized() ? user.roles.getItems().map((ur) => ur.role.name) : [];
 
     const payload: Omit<JwtPayload, 'iat' | 'exp'> = {
       sub: user.id,

@@ -1,3 +1,4 @@
+import { CommandBus } from '@nestjs/cqrs';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { TenancyController } from './tenancy.controller';
@@ -9,7 +10,7 @@ describe('TenancyController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TenancyController],
-      providers: [TenancyService],
+      providers: [TenancyService, { provide: CommandBus, useValue: { execute: jest.fn() } }],
     }).compile();
 
     controller = module.get<TenancyController>(TenancyController);
