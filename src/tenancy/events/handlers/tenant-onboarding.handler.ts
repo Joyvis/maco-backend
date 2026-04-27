@@ -1,5 +1,4 @@
-import { EntityManager, EntityRepository, RequestContext } from '@mikro-orm/core';
-import { InjectRepository } from '@mikro-orm/nestjs';
+import { EntityManager, RequestContext } from '@mikro-orm/core';
 import { EventsHandler } from '@nestjs/cqrs';
 import { BaseEventHandler } from '@shared/cqrs/base-event-handler';
 
@@ -14,11 +13,7 @@ const DEFAULT_CONFIGS = [
 
 @EventsHandler(TenantRegisteredEvent)
 export class TenantOnboardingHandler extends BaseEventHandler<TenantRegisteredEvent> {
-  constructor(
-    @InjectRepository(TenantConfig)
-    private readonly configRepo: EntityRepository<TenantConfig>,
-    private readonly em: EntityManager,
-  ) {
+  constructor(private readonly em: EntityManager) {
     super();
   }
 

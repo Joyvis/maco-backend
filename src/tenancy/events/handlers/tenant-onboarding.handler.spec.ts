@@ -1,5 +1,4 @@
 import { EntityManager, RequestContext } from '@mikro-orm/core';
-import { getRepositoryToken } from '@mikro-orm/nestjs';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { TenantConfig } from '../../entities/tenant-config.entity';
@@ -23,25 +22,19 @@ function makeEvent(): TenantRegisteredEvent {
 describe('TenantOnboardingHandler', () => {
   let handler: TenantOnboardingHandler;
   let em: { create: jest.Mock; persistAndFlush: jest.Mock };
-  let configRepo: object;
 
   beforeEach(async () => {
     em = {
       create: jest.fn().mockImplementation((_e: unknown, data: unknown) => data),
       persistAndFlush: jest.fn().mockResolvedValue(undefined),
     };
-    configRepo = {};
 
     jest
       .spyOn(RequestContext, 'create')
       .mockImplementation((_em: unknown, next: (...args: unknown[]) => unknown) => next());
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        TenantOnboardingHandler,
-        { provide: getRepositoryToken(TenantConfig), useValue: configRepo },
-        { provide: EntityManager, useValue: em },
-      ],
+      providers: [TenantOnboardingHandler, { provide: EntityManager, useValue: em }],
     }).compile();
 
     handler = module.get<TenantOnboardingHandler>(TenantOnboardingHandler);

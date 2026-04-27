@@ -1,3 +1,5 @@
+import { createHmac } from 'crypto';
+
 import { EntityManager } from '@mikro-orm/core';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -41,8 +43,9 @@ describe('Sign-Up (e2e)', () => {
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication();
+    app = moduleFixture.createNestApplication({ rawBody: true });
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    process.env['STRIPE_WEBHOOK_SECRET'] = 'test_stripe_webhook_secret_e2e';
     await app.init();
 
     em = moduleFixture.get<EntityManager>(EntityManager).fork();
@@ -169,12 +172,94 @@ describe('Sign-Up (e2e)', () => {
       .expect(401);
   });
 
-  // AC: Stripe webhook creates tenant with active status
+  // AC: Stripe webhook — error path
   it('POST /webhooks/stripe — 400 with invalid signature', async () => {
     await request(app.getHttpServer())
       .post('/webhooks/stripe')
       .set('Stripe-Signature', 'invalid-sig')
       .send('{}')
       .expect(400);
+  });
+
+  // AC2: Stripe webhook creates tenant with active status (happy path)
+  it('POST /webhooks/stripe — 200 with valid signature creates tenant with ACTIVE status', async () => {
+    const secret = process.env['STRIPE_WEBHOOK_SECRET']!;
+    const tenantId = '01960000-0001-7000-8001-000000000001';
+    const ownerId = '01960000-0001-7000-8001-000000000002';
+
+    const eventBody = JSON.stringify({
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          metadata: {
+            registration_pending: 'true',
+            tenant_id: tenantId,
+            owner_id: ownerId,
+            name: 'Stripe Paid Corp',
+            email: 'owner@stripe-paid-corp.com',
+            password_hash: '',
+            full_name: 'Stripe Owner',
+            account_type: AccountType.STANDARD,
+            plan_id: PLAN_ID,
+          },
+        },
+      },
+    });
+
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const hmac = createHmac('sha256', secret)
+      .update(`${timestamp}.${eventBody}`, 'utf8')
+      .digest('hex');
+    const sigHeader = `t=${timestamp},v1=${hmac}`;
+
+    await request(app.getHttpServer())
+      .post('/webhooks/stripe')
+      .set('Content-Type', 'application/json')
+      .set('Stripe-Signature', sigHeader)
+      .send(eventBody)
+      .expect(200);
+
+    createdTenantIds.push(tenantId);
+
+    em.clear();
+    const tenant = await em.findOne(Tenant, { id: tenantId }, { filters: false });
+    expect(tenant).not.toBeNull();
+    expect(tenant!.status).toBe(TenantStatus.ACTIVE);
+  });
+
+  // AC6: PA admin happy-path — authenticated admin creates tenant with ACTIVE status
+  it('POST /tenancy/create — 201 with ACTIVE status for authenticated user', async () => {
+    const ownerEmail = 'owner@admin-happy-path.com';
+    const ownerPassword = 'Password1!';
+
+    const signUpRes = await request(app.getHttpServer())
+      .post('/sign-up')
+      .send(signUpPayload({ name: 'Admin Auth Base', email: ownerEmail }))
+      .expect(201);
+
+    createdTenantIds.push((signUpRes.body as Record<string, unknown>)['tenant_id'] as string);
+
+    const loginRes = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: ownerEmail, password: ownerPassword })
+      .expect(200);
+
+    const accessToken = (loginRes.body as Record<string, unknown>)['access_token'] as string;
+
+    const adminRes = await request(app.getHttpServer())
+      .post('/tenancy/create')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send(
+        signUpPayload({
+          name: 'Admin Created Corp',
+          email: 'owner@admin-created-corp.com',
+          subscription_type: SubscriptionType.PAID,
+        }),
+      )
+      .expect(201);
+
+    const body = adminRes.body as Record<string, unknown>;
+    expect(body['status']).toBe(TenantStatus.ACTIVE);
+    createdTenantIds.push(body['tenant_id'] as string);
   });
 });
