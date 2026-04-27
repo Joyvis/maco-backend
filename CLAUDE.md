@@ -7,7 +7,7 @@ NestJS backend for the MacoSaaS Agent Orchestrator.
 - **Runtime**: Node.js >= 20 LTS (see `.nvmrc`)
 - **Framework**: NestJS v11 with `@nestjs/platform-express`
 - **Language**: TypeScript 5 (strict mode)
-- **Package manager**: npm
+- **Package manager**: pnpm (switched from npm in MACO-81)
 - **Linting**: ESLint 9 (flat config) + `typescript-eslint` + `eslint-plugin-import` + `eslint-plugin-prettier`
 - **Formatting**: Prettier 3 (config in `.prettierrc`)
 - **Pre-commit**: Husky 9 + lint-staged
@@ -154,3 +154,23 @@ Inside the container, run the standard `npm run start:dev`, `npm test`, etc.
 - Entities: `User` and `UserRole` live in `src/tenancy/entities/` — the `users` and `user_roles` tables are created here
 - Refresh tokens: stored hashed (bcrypt) in `refresh_tokens` table; token rotation is enforced; replay detection revokes all user tokens
 - Env vars required: `JWT_SECRET`, `JWT_REFRESH_SECRET` — TTLs default to 900s / 604800s (see `.env.example`)
+- JWT `roles` field contains role **names** (strings from `roles.name` column), not enum literals
+
+## Tenant Self-Service Onboarding
+
+- `POST /sign-up` — public endpoint; creates a tenant with `trial` status (free_trial) or returns a Stripe checkout URL (paid)
+- `POST /tenancy/create` — protected endpoint (requires JWT); PA admin creates tenant with active status, bypasses payment
+- `POST /webhooks/stripe` — public webhook; creates tenant with active status after Stripe payment confirmation
+
+New entities in `src/tenancy/entities/`:
+- `Tenant` — root tenant record (extends `BaseEntity`, not `TenantScopedEntity`)
+- `Role` — per-tenant role definitions with `is_system` flag (extends `TenantScopedEntity`)
+- `TenantConfig` — per-tenant key-value config (extends `TenantScopedEntity`)
+
+`UserRole.role` is now a FK to `roles` table (was an enum). `AuthService` populates `roles.role` and uses `ur.role.name` in JWT.
+
+`BaseCommandHandler<T, R>` now accepts an optional return type generic `R` (default `void`) so handlers can return values.
+
+On registration, `TenantOnboardingHandler` seeds 3 default `TenantConfig` rows (locale, timezone, max_users).
+
+Env var: `STRIPE_WEBHOOK_SECRET` — required for Stripe webhook signature verification.
