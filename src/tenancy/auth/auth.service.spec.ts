@@ -1,9 +1,11 @@
 import { EntityRepository } from '@mikro-orm/core';
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { EventBus } from '@nestjs/cqrs';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 
 import { RefreshToken } from '../entities/refresh-token.entity';
+import { Tenant, TenantStatus } from '../entities/tenant.entity';
 import { User, UserState } from '../entities/user.entity';
 
 import { AuthService } from './auth.service';
@@ -21,6 +23,13 @@ const makeUser = (overrides: Partial<User> = {}): User => {
   });
   return user;
 };
+
+const makeTenant = (overrides: Partial<Tenant> = {}): Tenant =>
+  Object.assign(new Tenant(), {
+    id: 'tenant-uuid',
+    status: TenantStatus.ACTIVE,
+    ...overrides,
+  });
 
 const makeRefreshToken = (overrides: Partial<RefreshToken> = {}): RefreshToken =>
   Object.assign(new RefreshToken(), {
@@ -42,7 +51,9 @@ describe('AuthService', () => {
     nativeUpdate: jest.Mock;
     getEntityManager: jest.Mock;
   }>;
+  let tenantRepo: jest.Mocked<{ findOne: jest.Mock }>;
   let jwtService: jest.Mocked<Pick<JwtService, 'sign' | 'verify'>>;
+  let eventBus: jest.Mocked<Pick<EventBus, 'publish'>>;
   let em: jest.Mocked<{ persistAndFlush: jest.Mock }>;
 
   beforeEach(() => {
@@ -54,28 +65,36 @@ describe('AuthService', () => {
       nativeUpdate: jest.fn().mockResolvedValue(undefined),
       getEntityManager: jest.fn().mockReturnValue(em),
     };
+    tenantRepo = { findOne: jest.fn().mockResolvedValue(makeTenant()) };
     jwtService = {
       sign: jest.fn().mockReturnValue('signed-token'),
       verify: jest.fn(),
     };
+    eventBus = { publish: jest.fn() };
 
     service = new AuthService(
       userRepo as unknown as EntityRepository<User>,
       refreshTokenRepo as unknown as EntityRepository<RefreshToken>,
       jwtService as unknown as JwtService,
+      tenantRepo as unknown as EntityRepository<Tenant>,
+      eventBus as unknown as EventBus,
     );
   });
 
   // --- login ---
 
-  // AC1: successful login
-  it('login: returns token pair for valid credentials and active user', async () => {
+  // AC1: successful login — returns tokens, updates last_login_at, emits event
+  it('login: returns token pair for valid credentials and active user in active tenant', async () => {
     const passwordHash = await bcrypt.hash('Password1!', 10);
     const user = makeUser({ password_hash: passwordHash });
     userRepo.findOne.mockResolvedValue(user);
     refreshTokenRepo.create.mockReturnValue(makeRefreshToken());
 
-    const result = await service.login({ email: 'user@test.com', password: 'Password1!' });
+    const result = await service.login(
+      { email: 'user@test.com', password: 'Password1!' },
+      '127.0.0.1',
+      'Mozilla/5.0',
+    );
 
     expect(result.access_token).toBeDefined();
     expect(result.refresh_token).toBeDefined();
@@ -88,46 +107,129 @@ describe('AuthService', () => {
     );
   });
 
-  // AC2: wrong password → 401
+  // AC1: last_login_at is updated on successful login
+  it('login: sets last_login_at on the user after successful login', async () => {
+    const passwordHash = await bcrypt.hash('Password1!', 10);
+    const user = makeUser({ password_hash: passwordHash });
+    userRepo.findOne.mockResolvedValue(user);
+    refreshTokenRepo.create.mockReturnValue(makeRefreshToken());
+
+    await service.login(
+      { email: 'user@test.com', password: 'Password1!' },
+      '127.0.0.1',
+      'Mozilla/5.0',
+    );
+
+    expect(user.last_login_at).toBeInstanceOf(Date);
+  });
+
+  // AC2: UserLoggedInEvent is published on successful login
+  it('login: publishes UserLoggedInEvent with correct fields on success', async () => {
+    const passwordHash = await bcrypt.hash('Password1!', 10);
+    const user = makeUser({ password_hash: passwordHash });
+    userRepo.findOne.mockResolvedValue(user);
+    refreshTokenRepo.create.mockReturnValue(makeRefreshToken());
+
+    await service.login(
+      { email: 'user@test.com', password: 'Password1!' },
+      '10.0.0.1',
+      'TestAgent/1.0',
+    );
+
+    expect(eventBus.publish).toHaveBeenCalledTimes(1);
+    expect(eventBus.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_id: 'user-uuid',
+        tenant_id: 'tenant-uuid',
+        ip_address: '10.0.0.1',
+        user_agent: 'TestAgent/1.0',
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        logged_in_at: expect.any(Date),
+      }),
+    );
+  });
+
+  // AC3: non-existent email → 401
+  it('login: throws UnauthorizedException for non-existent email', async () => {
+    userRepo.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.login({ email: 'nobody@test.com', password: 'any' }, '', ''),
+    ).rejects.toThrow(new UnauthorizedException('Invalid credentials'));
+  });
+
+  // AC4: wrong password → 401
   it('login: throws UnauthorizedException for wrong password', async () => {
     const user = makeUser({ password_hash: await bcrypt.hash('correct', 10) });
     userRepo.findOne.mockResolvedValue(user);
 
-    await expect(service.login({ email: 'user@test.com', password: 'wrong' })).rejects.toThrow(
-      new UnauthorizedException('Invalid credentials'),
-    );
+    await expect(
+      service.login({ email: 'user@test.com', password: 'wrong' }, '', ''),
+    ).rejects.toThrow(new UnauthorizedException('Invalid credentials'));
     expect(em.persistAndFlush).not.toHaveBeenCalled();
   });
 
-  // AC3: email not found → 401 (same message as wrong password)
-  it('login: throws UnauthorizedException for non-existent email', async () => {
-    userRepo.findOne.mockResolvedValue(null);
-
-    await expect(service.login({ email: 'nobody@test.com', password: 'any' })).rejects.toThrow(
-      new UnauthorizedException('Invalid credentials'),
-    );
-  });
-
-  // AC4: inactive user → 403
-  it('login: throws ForbiddenException for inactive user', async () => {
+  // AC5: inactive user → 403, last_login_at NOT updated
+  it('login: throws ForbiddenException for inactive user and does not update last_login_at', async () => {
     const passwordHash = await bcrypt.hash('Password1!', 10);
     const user = makeUser({ password_hash: passwordHash, state: UserState.INACTIVE });
     userRepo.findOne.mockResolvedValue(user);
 
-    await expect(service.login({ email: 'user@test.com', password: 'Password1!' })).rejects.toThrow(
-      new ForbiddenException('Account is not active'),
-    );
+    await expect(
+      service.login({ email: 'user@test.com', password: 'Password1!' }, '', ''),
+    ).rejects.toThrow(new ForbiddenException('Account is not active'));
+    expect(user.last_login_at).toBeUndefined();
+    expect(eventBus.publish).not.toHaveBeenCalled();
   });
 
-  // AC4: suspended user → 403
-  it('login: throws ForbiddenException for suspended user', async () => {
+  // AC5: suspended user state → 403
+  it('login: throws ForbiddenException for suspended user state', async () => {
     const passwordHash = await bcrypt.hash('Password1!', 10);
     const user = makeUser({ password_hash: passwordHash, state: UserState.SUSPENDED });
     userRepo.findOne.mockResolvedValue(user);
 
-    await expect(service.login({ email: 'user@test.com', password: 'Password1!' })).rejects.toThrow(
-      ForbiddenException,
-    );
+    await expect(
+      service.login({ email: 'user@test.com', password: 'Password1!' }, '', ''),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  // AC6: tenant status=suspended → 403 'Tenant suspended'
+  it('login: throws ForbiddenException with "Tenant suspended" when tenant is suspended', async () => {
+    const passwordHash = await bcrypt.hash('Password1!', 10);
+    const user = makeUser({ password_hash: passwordHash });
+    userRepo.findOne.mockResolvedValue(user);
+    tenantRepo.findOne.mockResolvedValue(makeTenant({ status: TenantStatus.SUSPENDED }));
+
+    await expect(
+      service.login({ email: 'user@test.com', password: 'Password1!' }, '', ''),
+    ).rejects.toThrow(new ForbiddenException('Tenant suspended'));
+    expect(eventBus.publish).not.toHaveBeenCalled();
+  });
+
+  // AC7: tenant status=cancelled → 403 'Tenant cancelled'
+  it('login: throws ForbiddenException with "Tenant cancelled" when tenant is cancelled', async () => {
+    const passwordHash = await bcrypt.hash('Password1!', 10);
+    const user = makeUser({ password_hash: passwordHash });
+    userRepo.findOne.mockResolvedValue(user);
+    tenantRepo.findOne.mockResolvedValue(makeTenant({ status: TenantStatus.CANCELLED }));
+
+    await expect(
+      service.login({ email: 'user@test.com', password: 'Password1!' }, '', ''),
+    ).rejects.toThrow(new ForbiddenException('Tenant cancelled'));
+    expect(eventBus.publish).not.toHaveBeenCalled();
+  });
+
+  // AC8: tenant status=trial → login succeeds
+  it('login: succeeds when tenant status is trial', async () => {
+    const passwordHash = await bcrypt.hash('Password1!', 10);
+    const user = makeUser({ password_hash: passwordHash });
+    userRepo.findOne.mockResolvedValue(user);
+    tenantRepo.findOne.mockResolvedValue(makeTenant({ status: TenantStatus.TRIAL }));
+    refreshTokenRepo.create.mockReturnValue(makeRefreshToken());
+
+    const result = await service.login({ email: 'user@test.com', password: 'Password1!' }, '', '');
+
+    expect(result.token_type).toBe('Bearer');
   });
 
   // --- refresh ---

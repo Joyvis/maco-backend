@@ -1,11 +1,14 @@
 import { EntityRepository } from '@mikro-orm/core';
 import { InjectRepository } from '@mikro-orm/nestjs';
 import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { EventBus } from '@nestjs/cqrs';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 
 import { RefreshToken } from '../entities/refresh-token.entity';
+import { Tenant, TenantStatus } from '../entities/tenant.entity';
 import { User, UserState } from '../entities/user.entity';
+import { UserLoggedInEvent } from '../events/user-logged-in.event';
 
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
@@ -19,9 +22,12 @@ export class AuthService {
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepo: EntityRepository<RefreshToken>,
     private readonly jwtService: JwtService,
+    @InjectRepository(Tenant)
+    private readonly tenantRepo: EntityRepository<Tenant>,
+    private readonly eventBus: EventBus,
   ) {}
 
-  async login(dto: LoginDto): Promise<AuthResponseDto> {
+  async login(dto: LoginDto, ipAddress: string, userAgent: string): Promise<AuthResponseDto> {
     const user = await this.userRepo.findOne(
       { email: dto.email },
       { filters: { tenant: false }, populate: ['roles.role'] as never },
@@ -31,16 +37,36 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (user.state !== UserState.ACTIVE) {
-      throw new ForbiddenException('Account is not active');
-    }
-
     const passwordValid = await bcrypt.compare(dto.password, user.password_hash);
     if (!passwordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    return this.generateTokenPair(user);
+    if (user.state !== UserState.ACTIVE) {
+      throw new ForbiddenException('Account is not active');
+    }
+
+    const tenant = await this.tenantRepo.findOne({ id: user.tenant_id }, { filters: false });
+    if (tenant?.status === TenantStatus.SUSPENDED) {
+      throw new ForbiddenException('Tenant suspended');
+    }
+    if (tenant?.status === TenantStatus.CANCELLED) {
+      throw new ForbiddenException('Tenant cancelled');
+    }
+    if (tenant?.status !== TenantStatus.ACTIVE && tenant?.status !== TenantStatus.TRIAL) {
+      throw new ForbiddenException('Tenant is not active');
+    }
+
+    const loggedInAt = new Date();
+    user.last_login_at = loggedInAt;
+
+    const result = await this.generateTokenPair(user);
+
+    this.eventBus.publish(
+      new UserLoggedInEvent(user.tenant_id, user.id, ipAddress, userAgent, loggedInAt),
+    );
+
+    return result;
   }
 
   async refresh(rawToken: string): Promise<AuthResponseDto> {
