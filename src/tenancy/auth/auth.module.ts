@@ -1,10 +1,12 @@
 import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { CqrsModule } from '@nestjs/cqrs';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 
 import { RefreshToken } from '../entities/refresh-token.entity';
+import { Tenant } from '../entities/tenant.entity';
 import { UserRole } from '../entities/user-role.entity';
 import { User } from '../entities/user.entity';
 
@@ -15,9 +17,10 @@ import { JwtStrategy } from './jwt.strategy';
 
 @Module({
   imports: [
+    CqrsModule,
     PassportModule,
     JwtModule.register({}),
-    MikroOrmModule.forFeature([User, UserRole, RefreshToken]),
+    MikroOrmModule.forFeature([User, UserRole, RefreshToken, Tenant]),
   ],
   controllers: [AuthController],
   providers: [

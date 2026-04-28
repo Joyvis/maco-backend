@@ -11,6 +11,7 @@ export enum TenantStatus {
   ACTIVE = 'active',
   TRIAL = 'trial',
   SUSPENDED = 'suspended',
+  CANCELLED = 'cancelled',
   PENDING_PAYMENT = 'pending_payment',
 }
 

@@ -27,6 +27,9 @@ export class User extends TenantScopedEntity {
   @Enum({ items: () => UserState })
   state: UserState = UserState.ACTIVE;
 
+  @Property({ type: 'timestamptz', nullable: true })
+  last_login_at?: Date;
+
   @OneToMany(() => UserRole, (ur) => ur.user)
   roles = new Collection<UserRole>(this);
 }

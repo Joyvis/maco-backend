@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { Request } from 'express';
 
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -12,6 +13,13 @@ const mockResponse: AuthResponseDto = {
   token_type: 'Bearer',
   expires_in: 900,
 };
+
+const makeReq = (overrides: Partial<Request> = {}): Request =>
+  ({
+    ip: '127.0.0.1',
+    headers: { 'user-agent': 'TestAgent/1.0' },
+    ...overrides,
+  }) as unknown as Request;
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -31,11 +39,19 @@ describe('AuthController', () => {
     controller = module.get<AuthController>(AuthController);
   });
 
-  it('login: delegates to authService.login and returns token pair', async () => {
+  it('login: delegates to authService.login with dto, ip, and user-agent', async () => {
     const dto: LoginDto = { email: 'user@test.com', password: 'Password1!' };
-    const result = await controller.login(dto);
-    expect(authService.login).toHaveBeenCalledWith(dto);
+    const req = makeReq();
+    const result = await controller.login(dto, req);
+    expect(authService.login).toHaveBeenCalledWith(dto, '127.0.0.1', 'TestAgent/1.0');
     expect(result).toEqual(mockResponse);
+  });
+
+  it('login: passes empty strings when ip and user-agent are absent', async () => {
+    const dto: LoginDto = { email: 'user@test.com', password: 'Password1!' };
+    const req = makeReq({ ip: undefined, headers: {} });
+    await controller.login(dto, req);
+    expect(authService.login).toHaveBeenCalledWith(dto, '', '');
   });
 
   it('refresh: delegates to authService.refresh with the raw token', async () => {
