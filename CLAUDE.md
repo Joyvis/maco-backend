@@ -151,6 +151,7 @@ Inside the container, run the standard `npm run start:dev`, `npm test`, etc.
 - **@Public()**: decorator in `src/tenancy/auth/public.decorator.ts` — skip auth for a handler or controller
 - **@CurrentUser()**: param decorator in `src/tenancy/auth/current-user.decorator.ts` — injects `{ id, tenantId, roles }`
 - **TenantGuard**: use `@UseGuards(TenantGuard)` on routes with a `:tenantId` path param to enforce cross-tenant isolation
+- **RolesGuard** + **@Roles()**: in `src/tenancy/auth/` — apply `@UseGuards(RolesGuard)` + `@Roles('owner', 'ta')` for role-based authorization; roles are JWT role name strings
 - Entities: `User` and `UserRole` live in `src/tenancy/entities/` — the `users` and `user_roles` tables are created here
 - Refresh tokens: stored hashed (bcrypt) in `refresh_tokens` table; token rotation is enforced; replay detection revokes all user tokens
 - Env vars required: `JWT_SECRET`, `JWT_REFRESH_SECRET` — TTLs default to 900s / 604800s (see `.env.example`)
@@ -174,3 +175,10 @@ New entities in `src/tenancy/entities/`:
 On registration, `TenantOnboardingHandler` seeds 3 default `TenantConfig` rows (locale, timezone, max_users).
 
 Env var: `STRIPE_WEBHOOK_SECRET` — required for Stripe webhook signature verification.
+
+## User Management
+
+- `POST /users` — JWT-protected; requires `owner` or `ta` role; creates a user within the caller's tenant
+- `CreateUserHandler` generates a random 16-byte temp password (bcrypt-hashed); not returned in response
+- `UserRoleType` enum (`owner`, `ta`, `staff`, `customer`) in `src/tenancy/dto/create-user.dto.ts` — valid values for `initial_roles`; each maps to a Role row by name in the caller's tenant
+- `UsersController` is exported from `src/tenancy/tenancy.controller.ts` alongside `TenancyController`
