@@ -1,3 +1,5 @@
+import * as crypto from 'crypto';
+
 import { EntityRepository } from '@mikro-orm/core';
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { EventBus } from '@nestjs/cqrs';
@@ -47,6 +49,7 @@ describe('AuthService', () => {
   let userRepo: jest.Mocked<{ findOne: jest.Mock; findOneOrFail: jest.Mock }>;
   let refreshTokenRepo: jest.Mocked<{
     find: jest.Mock;
+    findOne: jest.Mock;
     create: jest.Mock;
     nativeUpdate: jest.Mock;
     getEntityManager: jest.Mock;
@@ -61,6 +64,7 @@ describe('AuthService', () => {
     userRepo = { findOne: jest.fn(), findOneOrFail: jest.fn() };
     refreshTokenRepo = {
       find: jest.fn(),
+      findOne: jest.fn(),
       create: jest.fn(),
       nativeUpdate: jest.fn().mockResolvedValue(undefined),
       getEntityManager: jest.fn().mockReturnValue(em),
@@ -237,9 +241,9 @@ describe('AuthService', () => {
   // AC11: successful token rotation
   it('refresh: rotates refresh token and returns new pair', async () => {
     const user = makeUser();
-    const token = makeRefreshToken({ token_hash: await bcrypt.hash('raw-token', 10) });
+    const token = makeRefreshToken({ token_hash: sha256('raw-token') });
     jwtService.verify.mockReturnValue({ sub: 'user-uuid', tenant_id: 'tenant-uuid', roles: [] });
-    refreshTokenRepo.find.mockResolvedValue([token]);
+    refreshTokenRepo.findOne.mockResolvedValue(token);
     refreshTokenRepo.create.mockReturnValue(makeRefreshToken());
     userRepo.findOneOrFail.mockResolvedValue(user);
 
@@ -264,11 +268,11 @@ describe('AuthService', () => {
   // AC13: revoked token replay → revoke all
   it('refresh: throws UnauthorizedException and revokes all tokens for revoked token replay', async () => {
     const revokedToken = makeRefreshToken({
-      token_hash: await bcrypt.hash('raw-token', 10),
+      token_hash: sha256('raw-token'),
       revoked_at: new Date(),
     });
     jwtService.verify.mockReturnValue({ sub: 'user-uuid', tenant_id: 'tenant-uuid', roles: [] });
-    refreshTokenRepo.find.mockResolvedValue([revokedToken]);
+    refreshTokenRepo.findOne.mockResolvedValue(revokedToken);
 
     await expect(service.refresh('raw-token')).rejects.toThrow(
       new UnauthorizedException('Invalid refresh token'),
@@ -292,14 +296,18 @@ describe('AuthService', () => {
   // AC12: expired in DB (past expires_at, valid JWT)
   it('refresh: throws UnauthorizedException for token past expires_at', async () => {
     const expiredToken = makeRefreshToken({
-      token_hash: await bcrypt.hash('raw-token', 10),
+      token_hash: sha256('raw-token'),
       expires_at: new Date(Date.now() - 1000),
     });
     jwtService.verify.mockReturnValue({ sub: 'user-uuid', tenant_id: 'tenant-uuid', roles: [] });
-    refreshTokenRepo.find.mockResolvedValue([expiredToken]);
+    refreshTokenRepo.findOne.mockResolvedValue(expiredToken);
 
     await expect(service.refresh('raw-token')).rejects.toThrow(
       new UnauthorizedException('Invalid refresh token'),
     );
   });
 });
+
+function sha256(value: string): string {
+  return crypto.createHash('sha256').update(value).digest('base64');
+}

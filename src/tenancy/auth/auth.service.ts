@@ -1,3 +1,5 @@
+import * as crypto from 'crypto';
+
 import { EntityRepository } from '@mikro-orm/core';
 import { InjectRepository } from '@mikro-orm/nestjs';
 import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
@@ -80,19 +82,12 @@ export class AuthService {
     }
 
     const userId = payload.sub;
+    const tokenHash = hashRefreshToken(rawToken);
 
-    const tokens = await this.refreshTokenRepo.find(
-      { user: userId, expires_at: { $gte: new Date() } },
+    const matchedToken = await this.refreshTokenRepo.findOne(
+      { user: userId, token_hash: tokenHash },
       { filters: false },
     );
-
-    let matchedToken: RefreshToken | null = null;
-    for (const token of tokens) {
-      if (await bcrypt.compare(rawToken, token.token_hash)) {
-        matchedToken = token;
-        break;
-      }
-    }
 
     if (!matchedToken) {
       throw new UnauthorizedException('Invalid refresh token');
@@ -139,10 +134,9 @@ export class AuthService {
       expiresIn: refreshTtl,
     });
 
-    const tokenHash = await bcrypt.hash(refreshToken, 10);
     const refreshTokenEntity = this.refreshTokenRepo.create({
       user,
-      token_hash: tokenHash,
+      token_hash: hashRefreshToken(refreshToken),
       expires_at: new Date(Date.now() + refreshTtl * 1000),
     });
     await this.refreshTokenRepo.getEntityManager().persistAndFlush(refreshTokenEntity);
@@ -154,4 +148,8 @@ export class AuthService {
       expires_in: accessTtl,
     };
   }
+}
+
+function hashRefreshToken(rawToken: string): string {
+  return crypto.createHash('sha256').update(rawToken).digest('base64');
 }
