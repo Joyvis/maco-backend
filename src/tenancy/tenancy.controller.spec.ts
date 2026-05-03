@@ -1,3 +1,4 @@
+import { getRepositoryToken } from '@mikro-orm/nestjs';
 import { CommandBus } from '@nestjs/cqrs';
 import { Test, TestingModule } from '@nestjs/testing';
 
@@ -5,6 +6,7 @@ import { RequestUser } from './auth/jwt-payload.interface';
 import { RolesGuard } from './auth/roles.guard';
 import { CreateUserResponseDto } from './dto/create-user-response.dto';
 import { UserRoleType } from './dto/create-user.dto';
+import { User } from './entities/user.entity';
 import { TenancyController, UsersController } from './tenancy.controller';
 import { TenancyService } from './tenancy.service';
 
@@ -28,6 +30,7 @@ describe('TenancyController', () => {
 describe('UsersController', () => {
   let controller: UsersController;
   let commandBus: { execute: jest.Mock };
+  let userRepo: { findOne: jest.Mock };
 
   const mockUser: RequestUser = {
     id: 'actor-id',
@@ -48,10 +51,14 @@ describe('UsersController', () => {
 
   beforeEach(async () => {
     commandBus = { execute: jest.fn().mockResolvedValue(mockResponse) };
+    userRepo = { findOne: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UsersController],
-      providers: [{ provide: CommandBus, useValue: commandBus }],
+      providers: [
+        { provide: CommandBus, useValue: commandBus },
+        { provide: getRepositoryToken(User), useValue: userRepo },
+      ],
     })
       .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
@@ -94,5 +101,40 @@ describe('UsersController', () => {
 
     const [command] = commandBus.execute.mock.calls[0] as [{ initial_roles: string[] }];
     expect(command.initial_roles).toEqual([]);
+  });
+
+  describe('GET /users/me', () => {
+    it('returns the current user mapped to the frontend User shape', async () => {
+      userRepo.findOne.mockResolvedValue({
+        id: 'actor-id',
+        tenant_id: 'tenant-id',
+        email: 'owner@acme.test',
+        full_name: 'Acme Owner',
+        roles: {
+          getItems: () => [{ role: { name: 'owner' } }, { role: { name: 'staff' } }],
+        },
+      });
+
+      const result = await controller.me(mockUser);
+
+      expect(userRepo.findOne).toHaveBeenCalledWith(
+        { id: 'actor-id', tenant_id: 'tenant-id' },
+        expect.objectContaining({ filters: false }),
+      );
+      expect(result).toEqual({
+        id: 'actor-id',
+        email: 'owner@acme.test',
+        name: 'Acme Owner',
+        tenant_id: 'tenant-id',
+        roles: ['owner', 'staff'],
+        permissions: [],
+      });
+    });
+
+    it('throws NotFoundException when the user is not found', async () => {
+      userRepo.findOne.mockResolvedValue(null);
+
+      await expect(controller.me(mockUser)).rejects.toThrow('User not found');
+    });
   });
 });

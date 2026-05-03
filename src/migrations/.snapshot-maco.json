@@ -1,0 +1,1200 @@
+{
+  "namespaces": [
+    "public"
+  ],
+  "name": "public",
+  "tables": [
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        }
+      },
+      "name": "refresh_tokens",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "refresh_tokens_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "token_hash"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "refresh_tokens_token_hash_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "user_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "refresh_tokens_user_id_index",
+          "unique": false,
+          "primary": false
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {
+        "refresh_tokens_user_id_fkey": {
+          "columnNames": [
+            "user_id"
+          ],
+          "constraintName": "refresh_tokens_user_id_fkey",
+          "localTableName": "public.refresh_tokens",
+          "referencedTableName": "public.users",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "no action"
+        }
+      },
+      "nativeEnums": {
+        "account_type": {
+          "name": "account_type",
+          "schema": "public",
+          "items": [
+            "platform",
+            "wlc",
+            "standard"
+          ]
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "schema": "public",
+          "items": [
+            "free_trial",
+            "paid"
+          ]
+        },
+        "tenant_status": {
+          "name": "tenant_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ]
+        },
+        "user_state": {
+          "name": "user_state",
+          "schema": "public",
+          "items": [
+            "active",
+            "inactive",
+            "suspended"
+          ]
+        }
+      },
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(100)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 100,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "is_system": {
+          "name": "is_system",
+          "type": "bool",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "false",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "boolean"
+        }
+      },
+      "name": "roles",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "roles_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "tenant_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "roles_tenant_id_index",
+          "unique": false,
+          "primary": false
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {},
+      "nativeEnums": {
+        "account_type": {
+          "name": "account_type",
+          "schema": "public",
+          "items": [
+            "platform",
+            "wlc",
+            "standard"
+          ]
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "schema": "public",
+          "items": [
+            "free_trial",
+            "paid"
+          ]
+        },
+        "tenant_status": {
+          "name": "tenant_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ]
+        },
+        "user_state": {
+          "name": "user_state",
+          "schema": "public",
+          "items": [
+            "active",
+            "inactive",
+            "suspended"
+          ]
+        }
+      },
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "key": {
+          "name": "key",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "text"
+        }
+      },
+      "name": "tenant_configs",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "tenant_configs_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "tenant_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "tenant_configs_tenant_id_index",
+          "unique": false,
+          "primary": false
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {},
+      "nativeEnums": {
+        "account_type": {
+          "name": "account_type",
+          "schema": "public",
+          "items": [
+            "platform",
+            "wlc",
+            "standard"
+          ]
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "schema": "public",
+          "items": [
+            "free_trial",
+            "paid"
+          ]
+        },
+        "tenant_status": {
+          "name": "tenant_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ]
+        },
+        "user_state": {
+          "name": "user_state",
+          "schema": "public",
+          "items": [
+            "active",
+            "inactive",
+            "suspended"
+          ]
+        }
+      },
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "account_type": {
+          "name": "account_type",
+          "type": "account_type",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [
+            "platform",
+            "wlc",
+            "standard"
+          ],
+          "mappedType": "unknown",
+          "nativeEnumName": "account_type"
+        },
+        "parent_tenant_id": {
+          "name": "parent_tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "status": {
+          "name": "status",
+          "type": "tenant_status",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ],
+          "mappedType": "unknown",
+          "nativeEnumName": "tenant_status"
+        },
+        "plan_id": {
+          "name": "plan_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "type": "subscription_type",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [
+            "free_trial",
+            "paid"
+          ],
+          "mappedType": "unknown",
+          "nativeEnumName": "subscription_type"
+        },
+        "trial_ends_at": {
+          "name": "trial_ends_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        }
+      },
+      "name": "tenants",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "name"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "tenants_name_no_parent_unique",
+          "unique": true,
+          "primary": false,
+          "expression": "CREATE UNIQUE INDEX tenants_name_no_parent_unique ON public.tenants USING btree (name) WHERE (parent_tenant_id IS NULL)"
+        },
+        {
+          "columnNames": [
+            "name",
+            "parent_tenant_id"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "tenants_name_parent_unique",
+          "unique": true,
+          "primary": false,
+          "expression": "CREATE UNIQUE INDEX tenants_name_parent_unique ON public.tenants USING btree (name, parent_tenant_id) WHERE (parent_tenant_id IS NOT NULL)"
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "tenants_pkey",
+          "unique": true,
+          "primary": true
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {},
+      "nativeEnums": {
+        "account_type": {
+          "name": "account_type",
+          "schema": "public",
+          "items": [
+            "platform",
+            "wlc",
+            "standard"
+          ]
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "schema": "public",
+          "items": [
+            "free_trial",
+            "paid"
+          ]
+        },
+        "tenant_status": {
+          "name": "tenant_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ]
+        },
+        "user_state": {
+          "name": "user_state",
+          "schema": "public",
+          "items": [
+            "active",
+            "inactive",
+            "suspended"
+          ]
+        }
+      },
+      "comment": null
+    },
+    {
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "role_id": {
+          "name": "role_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        }
+      },
+      "name": "user_roles",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "user_id",
+            "role_id"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "user_roles_pkey",
+          "unique": true,
+          "primary": true
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {
+        "user_roles_role_id_fkey": {
+          "columnNames": [
+            "role_id"
+          ],
+          "constraintName": "user_roles_role_id_fkey",
+          "localTableName": "public.user_roles",
+          "referencedTableName": "public.roles",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "no action"
+        },
+        "user_roles_user_id_fkey": {
+          "columnNames": [
+            "user_id"
+          ],
+          "constraintName": "user_roles_user_id_fkey",
+          "localTableName": "public.user_roles",
+          "referencedTableName": "public.users",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "no action"
+        }
+      },
+      "nativeEnums": {
+        "account_type": {
+          "name": "account_type",
+          "schema": "public",
+          "items": [
+            "platform",
+            "wlc",
+            "standard"
+          ]
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "schema": "public",
+          "items": [
+            "free_trial",
+            "paid"
+          ]
+        },
+        "tenant_status": {
+          "name": "tenant_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ]
+        },
+        "user_state": {
+          "name": "user_state",
+          "schema": "public",
+          "items": [
+            "active",
+            "inactive",
+            "suspended"
+          ]
+        }
+      },
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "full_name": {
+          "name": "full_name",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "phone": {
+          "name": "phone",
+          "type": "varchar(50)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 50,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "state": {
+          "name": "state",
+          "type": "user_state",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "'active'",
+          "comment": null,
+          "enumItems": [
+            "active",
+            "inactive",
+            "suspended"
+          ],
+          "mappedType": "unknown",
+          "nativeEnumName": "user_state"
+        },
+        "last_login_at": {
+          "name": "last_login_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        }
+      },
+      "name": "users",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "users_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "tenant_id",
+            "email"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "users_tenant_id_email_unique",
+          "unique": true,
+          "primary": false
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {},
+      "nativeEnums": {
+        "account_type": {
+          "name": "account_type",
+          "schema": "public",
+          "items": [
+            "platform",
+            "wlc",
+            "standard"
+          ]
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "schema": "public",
+          "items": [
+            "free_trial",
+            "paid"
+          ]
+        },
+        "tenant_status": {
+          "name": "tenant_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ]
+        },
+        "user_state": {
+          "name": "user_state",
+          "schema": "public",
+          "items": [
+            "active",
+            "inactive",
+            "suspended"
+          ]
+        }
+      },
+      "comment": null
+    }
+  ],
+  "nativeEnums": {
+    "account_type": {
+      "name": "account_type",
+      "schema": "public",
+      "items": [
+        "platform",
+        "wlc",
+        "standard"
+      ]
+    },
+    "subscription_type": {
+      "name": "subscription_type",
+      "schema": "public",
+      "items": [
+        "free_trial",
+        "paid"
+      ]
+    },
+    "tenant_status": {
+      "name": "tenant_status",
+      "schema": "public",
+      "items": [
+        "active",
+        "trial",
+        "suspended",
+        "cancelled",
+        "pending_payment"
+      ]
+    },
+    "user_state": {
+      "name": "user_state",
+      "schema": "public",
+      "items": [
+        "active",
+        "inactive",
+        "suspended"
+      ]
+    }
+  }
+}

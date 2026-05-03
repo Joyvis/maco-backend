@@ -6,11 +6,18 @@ services:
       - node_modules:/workspace/node_modules
     working_dir: /workspace
     command: sleep infinity
+    ports:
+      - "${APP_HOST_PORT:-4000}:3000"
     env_file:
       - path: ../.env
         required: false
     environment:
       DATABASE_URL: postgresql://${DB_USER:-maco}:${DB_PASSWORD:-maco}@${DB_HOST:-db}:${DB_PORT:-5432}/${DB_NAME:-maco}
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${DB_NAME:-maco}
+      DATABASE_USER: ${DB_USER:-maco}
+      DATABASE_PASSWORD: ${DB_PASSWORD:-maco}
       NODE_ENV: development
       PORT: ${APP_PORT:-3000}
     networks:

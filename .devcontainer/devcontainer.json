@@ -4,15 +4,15 @@
   "service": "app",
   "workspaceFolder": "/workspace",
   "shutdownAction": "stopCompose",
-  "forwardPorts": [3000, 5432],
+  "forwardPorts": [4000, 5432],
   "portsAttributes": {
-    "3000": { "label": "NestJS", "onAutoForward": "notify" },
+    "4000": { "label": "NestJS (host)", "onAutoForward": "notify" },
     "5432": { "label": "Postgres", "onAutoForward": "silent" }
   },
   "remoteUser": "node",
   "initializeCommand": "cp -n .env .devcontainer/.env 2>/dev/null || true",
-  "postCreateCommand": "npm install",
-  "postStartCommand": "npm run start:dev",
+  "postCreateCommand": "sudo chown -R node:node /workspace/node_modules && sudo corepack enable && sudo corepack prepare pnpm@10.33.2 --activate && pnpm install",
+  "postStartCommand": "pnpm run start",
   "customizations": {
     "vscode": {
       "extensions": [
