@@ -54,6 +54,478 @@
           "enumItems": [],
           "mappedType": "datetime"
         },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "display_order": {
+          "name": "display_order",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        }
+      },
+      "name": "categories",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "categories_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "tenant_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "categories_tenant_id_index",
+          "unique": false,
+          "primary": false
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {},
+      "nativeEnums": {
+        "account_type": {
+          "name": "account_type",
+          "schema": "public",
+          "items": [
+            "platform",
+            "wlc",
+            "standard"
+          ]
+        },
+        "product_status": {
+          "name": "product_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "product_unit": {
+          "name": "product_unit",
+          "schema": "public",
+          "items": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
+          ]
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "schema": "public",
+          "items": [
+            "free_trial",
+            "paid"
+          ]
+        },
+        "tenant_status": {
+          "name": "tenant_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ]
+        },
+        "user_state": {
+          "name": "user_state",
+          "schema": "public",
+          "items": [
+            "active",
+            "inactive",
+            "suspended"
+          ]
+        }
+      },
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "unit": {
+          "name": "unit",
+          "type": "product_unit",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
+          ],
+          "mappedType": "unknown",
+          "nativeEnumName": "product_unit"
+        },
+        "base_price": {
+          "name": "base_price",
+          "type": "numeric(12,2)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 12,
+          "scale": 2,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "decimal"
+        },
+        "status": {
+          "name": "status",
+          "type": "product_status",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "'draft'",
+          "comment": null,
+          "enumItems": [
+            "draft",
+            "active",
+            "archived"
+          ],
+          "mappedType": "unknown",
+          "nativeEnumName": "product_status"
+        }
+      },
+      "name": "products",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "category_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "products_category_id_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "products_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "tenant_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "products_tenant_id_index",
+          "unique": false,
+          "primary": false
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {
+        "products_category_id_fkey": {
+          "columnNames": [
+            "category_id"
+          ],
+          "constraintName": "products_category_id_fkey",
+          "localTableName": "public.products",
+          "referencedTableName": "public.categories",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "set null"
+        }
+      },
+      "nativeEnums": {
+        "account_type": {
+          "name": "account_type",
+          "schema": "public",
+          "items": [
+            "platform",
+            "wlc",
+            "standard"
+          ]
+        },
+        "product_status": {
+          "name": "product_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "product_unit": {
+          "name": "product_unit",
+          "schema": "public",
+          "items": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
+          ]
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "schema": "public",
+          "items": [
+            "free_trial",
+            "paid"
+          ]
+        },
+        "tenant_status": {
+          "name": "tenant_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ]
+        },
+        "user_state": {
+          "name": "user_state",
+          "schema": "public",
+          "items": [
+            "active",
+            "inactive",
+            "suspended"
+          ]
+        }
+      },
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
         "user_id": {
           "name": "user_id",
           "type": "uuid",
@@ -177,6 +649,26 @@
             "platform",
             "wlc",
             "standard"
+          ]
+        },
+        "product_status": {
+          "name": "product_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "product_unit": {
+          "name": "product_unit",
+          "schema": "public",
+          "items": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
           ]
         },
         "subscription_type": {
@@ -345,6 +837,26 @@
             "standard"
           ]
         },
+        "product_status": {
+          "name": "product_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "product_unit": {
+          "name": "product_unit",
+          "schema": "public",
+          "items": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
+          ]
+        },
         "subscription_type": {
           "name": "subscription_type",
           "schema": "public",
@@ -509,6 +1021,26 @@
             "platform",
             "wlc",
             "standard"
+          ]
+        },
+        "product_status": {
+          "name": "product_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "product_unit": {
+          "name": "product_unit",
+          "schema": "public",
+          "items": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
           ]
         },
         "subscription_type": {
@@ -770,6 +1302,26 @@
             "standard"
           ]
         },
+        "product_status": {
+          "name": "product_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "product_unit": {
+          "name": "product_unit",
+          "schema": "public",
+          "items": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
+          ]
+        },
         "subscription_type": {
           "name": "subscription_type",
           "schema": "public",
@@ -888,6 +1440,26 @@
             "platform",
             "wlc",
             "standard"
+          ]
+        },
+        "product_status": {
+          "name": "product_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "product_unit": {
+          "name": "product_unit",
+          "schema": "public",
+          "items": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
           ]
         },
         "subscription_type": {
@@ -1126,6 +1698,26 @@
             "standard"
           ]
         },
+        "product_status": {
+          "name": "product_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "product_unit": {
+          "name": "product_unit",
+          "schema": "public",
+          "items": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
+          ]
+        },
         "subscription_type": {
           "name": "subscription_type",
           "schema": "public",
@@ -1166,6 +1758,26 @@
         "platform",
         "wlc",
         "standard"
+      ]
+    },
+    "product_status": {
+      "name": "product_status",
+      "schema": "public",
+      "items": [
+        "draft",
+        "active",
+        "archived"
+      ]
+    },
+    "product_unit": {
+      "name": "product_unit",
+      "schema": "public",
+      "items": [
+        "ml",
+        "g",
+        "unit",
+        "kg",
+        "l"
       ]
     },
     "subscription_type": {
