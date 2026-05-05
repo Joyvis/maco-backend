@@ -159,6 +159,15 @@
             "l"
           ]
         },
+        "service_status": {
+          "name": "service_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
         "subscription_type": {
           "name": "subscription_type",
           "schema": "public",
@@ -445,6 +454,15 @@
             "l"
           ]
         },
+        "service_status": {
+          "name": "service_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
         "subscription_type": {
           "name": "subscription_type",
           "schema": "public",
@@ -671,6 +689,15 @@
             "l"
           ]
         },
+        "service_status": {
+          "name": "service_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
         "subscription_type": {
           "name": "subscription_type",
           "schema": "public",
@@ -857,6 +884,852 @@
             "l"
           ]
         },
+        "service_status": {
+          "name": "service_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "schema": "public",
+          "items": [
+            "free_trial",
+            "paid"
+          ]
+        },
+        "tenant_status": {
+          "name": "tenant_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ]
+        },
+        "user_state": {
+          "name": "user_state",
+          "schema": "public",
+          "items": [
+            "active",
+            "inactive",
+            "suspended"
+          ]
+        }
+      },
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "service_id": {
+          "name": "service_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "product_id": {
+          "name": "product_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "numeric(12,3)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 12,
+          "scale": 3,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "decimal"
+        }
+      },
+      "name": "service_consumptions",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "service_consumptions_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "product_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "service_consumptions_product_id_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "service_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "service_consumptions_service_id_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "service_id",
+            "product_id"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "service_consumptions_service_product_unique",
+          "unique": true,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "tenant_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "service_consumptions_tenant_id_index",
+          "unique": false,
+          "primary": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "service_consumptions_quantity_check",
+          "columnName": "quantity",
+          "definition": "CHECK ((quantity > (0)::numeric))",
+          "expression": "quantity > 0"
+        }
+      ],
+      "foreignKeys": {
+        "service_consumptions_product_id_fkey": {
+          "columnNames": [
+            "product_id"
+          ],
+          "constraintName": "service_consumptions_product_id_fkey",
+          "localTableName": "public.service_consumptions",
+          "referencedTableName": "public.products",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        },
+        "service_consumptions_service_id_fkey": {
+          "columnNames": [
+            "service_id"
+          ],
+          "constraintName": "service_consumptions_service_id_fkey",
+          "localTableName": "public.service_consumptions",
+          "referencedTableName": "public.services",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        }
+      },
+      "nativeEnums": {
+        "account_type": {
+          "name": "account_type",
+          "schema": "public",
+          "items": [
+            "platform",
+            "wlc",
+            "standard"
+          ]
+        },
+        "product_status": {
+          "name": "product_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "product_unit": {
+          "name": "product_unit",
+          "schema": "public",
+          "items": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
+          ]
+        },
+        "service_status": {
+          "name": "service_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "schema": "public",
+          "items": [
+            "free_trial",
+            "paid"
+          ]
+        },
+        "tenant_status": {
+          "name": "tenant_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ]
+        },
+        "user_state": {
+          "name": "user_state",
+          "schema": "public",
+          "items": [
+            "active",
+            "inactive",
+            "suspended"
+          ]
+        }
+      },
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "service_id": {
+          "name": "service_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "depends_on_service_id": {
+          "name": "depends_on_service_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        }
+      },
+      "name": "service_dependencies",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "depends_on_service_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "service_dependencies_depends_on_service_id_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "service_id",
+            "depends_on_service_id"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "service_dependencies_pair_unique",
+          "unique": true,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "service_dependencies_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "service_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "service_dependencies_service_id_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "tenant_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "service_dependencies_tenant_id_index",
+          "unique": false,
+          "primary": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "service_dependencies_no_self_check",
+          "columnName": "service_id",
+          "definition": "CHECK ((service_id <> depends_on_service_id))",
+          "expression": "service_id <> depends_on_service_id"
+        }
+      ],
+      "foreignKeys": {
+        "service_dependencies_depends_on_service_id_fkey": {
+          "columnNames": [
+            "depends_on_service_id"
+          ],
+          "constraintName": "service_dependencies_depends_on_service_id_fkey",
+          "localTableName": "public.service_dependencies",
+          "referencedTableName": "public.services",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        },
+        "service_dependencies_service_id_fkey": {
+          "columnNames": [
+            "service_id"
+          ],
+          "constraintName": "service_dependencies_service_id_fkey",
+          "localTableName": "public.service_dependencies",
+          "referencedTableName": "public.services",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        }
+      },
+      "nativeEnums": {
+        "account_type": {
+          "name": "account_type",
+          "schema": "public",
+          "items": [
+            "platform",
+            "wlc",
+            "standard"
+          ]
+        },
+        "product_status": {
+          "name": "product_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "product_unit": {
+          "name": "product_unit",
+          "schema": "public",
+          "items": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
+          ]
+        },
+        "service_status": {
+          "name": "service_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "schema": "public",
+          "items": [
+            "free_trial",
+            "paid"
+          ]
+        },
+        "tenant_status": {
+          "name": "tenant_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ]
+        },
+        "user_state": {
+          "name": "user_state",
+          "schema": "public",
+          "items": [
+            "active",
+            "inactive",
+            "suspended"
+          ]
+        }
+      },
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "status": {
+          "name": "status",
+          "type": "service_status",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "'draft'",
+          "comment": null,
+          "enumItems": [
+            "draft",
+            "active",
+            "archived"
+          ],
+          "mappedType": "unknown",
+          "nativeEnumName": "service_status"
+        },
+        "duration_minutes": {
+          "name": "duration_minutes",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "base_price": {
+          "name": "base_price",
+          "type": "numeric(12,2)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 12,
+          "scale": 2,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "decimal"
+        }
+      },
+      "name": "services",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "category_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "services_category_id_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "services_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "tenant_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "services_tenant_id_index",
+          "unique": false,
+          "primary": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "services_base_price_check",
+          "columnName": "base_price",
+          "definition": "CHECK ((base_price >= (0)::numeric))",
+          "expression": "base_price >= 0"
+        },
+        {
+          "name": "services_duration_minutes_check",
+          "columnName": "duration_minutes",
+          "definition": "CHECK ((duration_minutes > 0))",
+          "expression": "duration_minutes > 0"
+        }
+      ],
+      "foreignKeys": {
+        "services_category_id_fkey": {
+          "columnNames": [
+            "category_id"
+          ],
+          "constraintName": "services_category_id_fkey",
+          "localTableName": "public.services",
+          "referencedTableName": "public.categories",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "set null"
+        }
+      },
+      "nativeEnums": {
+        "account_type": {
+          "name": "account_type",
+          "schema": "public",
+          "items": [
+            "platform",
+            "wlc",
+            "standard"
+          ]
+        },
+        "product_status": {
+          "name": "product_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "product_unit": {
+          "name": "product_unit",
+          "schema": "public",
+          "items": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
+          ]
+        },
+        "service_status": {
+          "name": "service_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
         "subscription_type": {
           "name": "subscription_type",
           "schema": "public",
@@ -1041,6 +1914,15 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "service_status": {
+          "name": "service_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
           ]
         },
         "subscription_type": {
@@ -1322,6 +2204,15 @@
             "l"
           ]
         },
+        "service_status": {
+          "name": "service_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
         "subscription_type": {
           "name": "subscription_type",
           "schema": "public",
@@ -1460,6 +2351,15 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "service_status": {
+          "name": "service_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
           ]
         },
         "subscription_type": {
@@ -1718,6 +2618,15 @@
             "l"
           ]
         },
+        "service_status": {
+          "name": "service_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
         "subscription_type": {
           "name": "subscription_type",
           "schema": "public",
@@ -1778,6 +2687,15 @@
         "unit",
         "kg",
         "l"
+      ]
+    },
+    "service_status": {
+      "name": "service_status",
+      "schema": "public",
+      "items": [
+        "draft",
+        "active",
+        "archived"
       ]
     },
     "subscription_type": {

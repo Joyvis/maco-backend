@@ -5,9 +5,14 @@ import { CatalogController } from './catalog.controller';
 import { CatalogService } from './catalog.service';
 import { Category } from './entities/category.entity';
 import { Product } from './entities/product.entity';
+import { ServiceConsumption } from './entities/service-consumption.entity';
+import { ServiceDependency } from './entities/service-dependency.entity';
+import { Service } from './entities/service.entity';
 
 @Module({
-  imports: [MikroOrmModule.forFeature([Product, Category])],
+  imports: [
+    MikroOrmModule.forFeature([Product, Category, Service, ServiceConsumption, ServiceDependency]),
+  ],
   controllers: [CatalogController],
   providers: [CatalogService],
 })

@@ -71,6 +71,13 @@ describe('Catalog (e2e)', () => {
     for (const tid of createdTenantIds) {
       const users = await em.find(User, { tenant_id: tid }, { filters: false });
       const userIds = users.map((u) => u.id);
+      await em
+        .getConnection()
+        .execute('DELETE FROM service_dependencies WHERE tenant_id = ?', [tid]);
+      await em
+        .getConnection()
+        .execute('DELETE FROM service_consumptions WHERE tenant_id = ?', [tid]);
+      await em.getConnection().execute('DELETE FROM services WHERE tenant_id = ?', [tid]);
       await em.getConnection().execute('DELETE FROM products WHERE tenant_id = ?', [tid]);
       await em.getConnection().execute('DELETE FROM categories WHERE tenant_id = ?', [tid]);
       if (userIds.length > 0) {
@@ -285,6 +292,192 @@ describe('Catalog (e2e)', () => {
       .set('Authorization', `Bearer ${tenantAToken}`)
       .send({ name: 'Bad', unit: 'gallon', base_price: 1 })
       .expect(400);
+  });
+
+  // ──────────────────────────────────────────────────────
+  // Services
+  // ──────────────────────────────────────────────────────
+
+  it('POST /catalog/services — create then list returns it on page 1', async () => {
+    const createRes = await request(app.getHttpServer())
+      .post('/catalog/services')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({ name: 'Haircut', duration_minutes: 45, base_price: 29.9 })
+      .expect(201);
+
+    const created = (createRes.body as { data: Record<string, unknown> }).data;
+    expect(created['id']).toEqual(expect.any(String));
+    expect(created['name']).toBe('Haircut');
+    expect(created['status']).toBe('draft');
+    expect(created['duration_minutes']).toBe(45);
+    expect(created['base_price']).toBe(29.9);
+    expect(created['tenant_id']).toBe(tenantAId);
+
+    const listRes = await request(app.getHttpServer())
+      .get('/catalog/services')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .expect(200);
+
+    const body = listRes.body as {
+      data: Array<{ id: string }>;
+      meta: { total: number; page: number };
+    };
+    expect(body.meta.page).toBe(1);
+    expect(body.data.find((s) => s.id === created['id'])).toBeDefined();
+  });
+
+  it('POST /catalog/services/:id/activate and /archive — idempotent transitions', async () => {
+    const createRes = await request(app.getHttpServer())
+      .post('/catalog/services')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({ name: 'Manicure', duration_minutes: 30, base_price: 20 })
+      .expect(201);
+    const id = (createRes.body as { data: { id: string } }).data.id;
+
+    const a1 = await request(app.getHttpServer())
+      .post(`/catalog/services/${id}/activate`)
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .expect(200);
+    expect((a1.body as { data: { status: string } }).data.status).toBe('active');
+
+    const a2 = await request(app.getHttpServer())
+      .post(`/catalog/services/${id}/activate`)
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .expect(200);
+    expect((a2.body as { data: { status: string } }).data.status).toBe('active');
+
+    const ar1 = await request(app.getHttpServer())
+      .post(`/catalog/services/${id}/archive`)
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .expect(200);
+    expect((ar1.body as { data: { status: string } }).data.status).toBe('archived');
+
+    const ar2 = await request(app.getHttpServer())
+      .post(`/catalog/services/${id}/archive`)
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .expect(200);
+    expect((ar2.body as { data: { status: string } }).data.status).toBe('archived');
+  });
+
+  it('cross-tenant isolation: tenant B cannot read or modify tenant A service', async () => {
+    const createRes = await request(app.getHttpServer())
+      .post('/catalog/services')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({ name: 'IsolatedService', duration_minutes: 60, base_price: 50 })
+      .expect(201);
+    const id = (createRes.body as { data: { id: string } }).data.id;
+
+    const b = await signUpAndLogin(app, 'Catalog Services Tenant B', 'owner@catalog-svc-b.com');
+    createdTenantIds.push(b.tenantId);
+
+    await request(app.getHttpServer())
+      .get(`/catalog/services/${id}`)
+      .set('Authorization', `Bearer ${b.accessToken}`)
+      .expect(404);
+
+    await request(app.getHttpServer())
+      .patch(`/catalog/services/${id}`)
+      .set('Authorization', `Bearer ${b.accessToken}`)
+      .send({ name: 'Hijack' })
+      .expect(404);
+
+    const listRes = await request(app.getHttpServer())
+      .get('/catalog/services')
+      .set('Authorization', `Bearer ${b.accessToken}`)
+      .expect(200);
+    const body = listRes.body as { data: Array<{ id: string }> };
+    expect(body.data.find((s) => s.id === id)).toBeUndefined();
+  });
+
+  it('consumptions: add then remove a product consumption', async () => {
+    const svcRes = await request(app.getHttpServer())
+      .post('/catalog/services')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({ name: 'Color Treatment', duration_minutes: 90, base_price: 80 })
+      .expect(201);
+    const serviceId = (svcRes.body as { data: { id: string } }).data.id;
+
+    const prodRes = await request(app.getHttpServer())
+      .post('/catalog/products')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({ name: 'Hair Dye', unit: 'ml', base_price: 12 })
+      .expect(201);
+    const productId = (prodRes.body as { data: { id: string } }).data.id;
+
+    const addRes = await request(app.getHttpServer())
+      .post(`/catalog/services/${serviceId}/consumptions`)
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({ product_id: productId, quantity: 50 })
+      .expect(201);
+
+    const consumption = (addRes.body as { data: Record<string, unknown> }).data;
+    expect(consumption['service_id']).toBe(serviceId);
+    expect(consumption['product_id']).toBe(productId);
+    expect(consumption['quantity']).toBe(50);
+    expect(consumption['unit']).toBe('ml');
+    expect(consumption['product_name']).toBe('Hair Dye');
+
+    const listRes = await request(app.getHttpServer())
+      .get(`/catalog/services/${serviceId}/consumptions`)
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .expect(200);
+    expect((listRes.body as { data: unknown[] }).data).toHaveLength(1);
+
+    await request(app.getHttpServer())
+      .delete(`/catalog/services/${serviceId}/consumptions/${productId}`)
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .expect(204);
+
+    const listAfter = await request(app.getHttpServer())
+      .get(`/catalog/services/${serviceId}/consumptions`)
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .expect(200);
+    expect((listAfter.body as { data: unknown[] }).data).toHaveLength(0);
+  });
+
+  it('dependencies: add then remove a dependency, reject self-dependency', async () => {
+    const aRes = await request(app.getHttpServer())
+      .post('/catalog/services')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({ name: 'Wash', duration_minutes: 15, base_price: 10 })
+      .expect(201);
+    const aId = (aRes.body as { data: { id: string } }).data.id;
+
+    const bRes = await request(app.getHttpServer())
+      .post('/catalog/services')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({ name: 'Cut', duration_minutes: 30, base_price: 25 })
+      .expect(201);
+    const bId = (bRes.body as { data: { id: string } }).data.id;
+
+    // self-dependency rejected
+    await request(app.getHttpServer())
+      .post(`/catalog/services/${aId}/dependencies`)
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({ depends_on_service_id: aId })
+      .expect(400);
+
+    const addRes = await request(app.getHttpServer())
+      .post(`/catalog/services/${bId}/dependencies`)
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({ depends_on_service_id: aId })
+      .expect(201);
+    const dep = (addRes.body as { data: Record<string, unknown> }).data;
+    expect(dep['service_id']).toBe(bId);
+    expect(dep['depends_on_service_id']).toBe(aId);
+    expect(dep['depends_on_service_name']).toBe('Wash');
+    const dependencyId = dep['id'] as string;
+
+    const listRes = await request(app.getHttpServer())
+      .get(`/catalog/services/${bId}/dependencies`)
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .expect(200);
+    expect((listRes.body as { data: unknown[] }).data).toHaveLength(1);
+
+    await request(app.getHttpServer())
+      .delete(`/catalog/services/${bId}/dependencies/${dependencyId}`)
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .expect(204);
   });
 
   // List categories ordered by display_order then name

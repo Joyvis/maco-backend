@@ -14,12 +14,31 @@ import {
 } from './dto/category.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { CreateProductDto } from './dto/create-product.dto';
+import { CreateServiceConsumptionDto } from './dto/create-service-consumption.dto';
+import { CreateServiceDependencyDto } from './dto/create-service-dependency.dto';
+import { CreateServiceDto } from './dto/create-service.dto';
 import { ListProductsQueryDto } from './dto/list-products-query.dto';
+import { ListServicesQueryDto } from './dto/list-services-query.dto';
 import { ListProductsResponse, Product as ProductDto, ProductResponse } from './dto/product.dto';
+import {
+  ListServiceConsumptionsResponse,
+  ListServiceDependenciesResponse,
+  ListServicesResponse,
+  Service as ServiceDto,
+  ServiceConsumption as ServiceConsumptionDto,
+  ServiceConsumptionResponse,
+  ServiceDependency as ServiceDependencyDto,
+  ServiceDependencyResponse,
+  ServiceResponse,
+} from './dto/service.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { UpdateServiceDto } from './dto/update-service.dto';
 import { Category } from './entities/category.entity';
 import { Product, ProductStatus } from './entities/product.entity';
+import { ServiceConsumption } from './entities/service-consumption.entity';
+import { ServiceDependency } from './entities/service-dependency.entity';
+import { Service, ServiceStatus } from './entities/service.entity';
 
 const NO_TENANT_FILTER = { filters: { tenant: false } } as const;
 
@@ -28,6 +47,11 @@ export class CatalogService {
   constructor(
     @InjectRepository(Product) private readonly productRepo: EntityRepository<Product>,
     @InjectRepository(Category) private readonly categoryRepo: EntityRepository<Category>,
+    @InjectRepository(Service) private readonly serviceRepo: EntityRepository<Service>,
+    @InjectRepository(ServiceConsumption)
+    private readonly consumptionRepo: EntityRepository<ServiceConsumption>,
+    @InjectRepository(ServiceDependency)
+    private readonly dependencyRepo: EntityRepository<ServiceDependency>,
     private readonly em: EntityManager,
   ) {}
 
@@ -193,6 +217,246 @@ export class CatalogService {
       id: category.id,
       name: category.name,
       display_order: category.display_order,
+    };
+  }
+
+  async listServices(tenantId: string, query: ListServicesQueryDto): Promise<ListServicesResponse> {
+    const page = query.page ?? 1;
+    const page_size = query.page_size ?? 10;
+
+    const where: Record<string, unknown> = { tenant_id: tenantId };
+    if (query.status) where.status = query.status;
+    if (query.category) where.category = query.category;
+
+    const [items, total] = await this.serviceRepo.findAndCount(where, {
+      orderBy: { created_at: 'desc' },
+      limit: page_size,
+      offset: (page - 1) * page_size,
+      filters: { tenant: false },
+    });
+
+    return {
+      data: items.map((s) => this.toServiceDto(s)),
+      meta: {
+        total,
+        page,
+        page_size,
+        total_pages: Math.max(1, Math.ceil(total / page_size)),
+      },
+    };
+  }
+
+  async createService(tenantId: string, dto: CreateServiceDto): Promise<ServiceResponse> {
+    const category = await this.resolveCategory(tenantId, dto.category);
+
+    const service = new Service();
+    service.tenant_id = tenantId;
+    service.name = dto.name.trim();
+    if (dto.description !== undefined) service.description = dto.description;
+    if (category) service.category = category;
+    service.duration_minutes = dto.duration_minutes;
+    service.base_price = dto.base_price.toFixed(2);
+    service.status = ServiceStatus.DRAFT;
+
+    await this.em.persistAndFlush(service);
+    return { data: this.toServiceDto(service) };
+  }
+
+  async getService(tenantId: string, id: string): Promise<ServiceResponse> {
+    const service = await this.findServiceOrThrow(tenantId, id);
+    return { data: this.toServiceDto(service) };
+  }
+
+  async updateService(
+    tenantId: string,
+    id: string,
+    dto: UpdateServiceDto,
+  ): Promise<ServiceResponse> {
+    const service = await this.findServiceOrThrow(tenantId, id);
+
+    if (dto.name !== undefined) service.name = dto.name.trim();
+    if (dto.description !== undefined) service.description = dto.description;
+    if (dto.duration_minutes !== undefined) service.duration_minutes = dto.duration_minutes;
+    if (dto.base_price !== undefined) service.base_price = dto.base_price.toFixed(2);
+    if (dto.category !== undefined) {
+      const category = await this.resolveCategory(tenantId, dto.category);
+      service.category = category ?? undefined;
+    }
+
+    await this.em.flush();
+    return { data: this.toServiceDto(service) };
+  }
+
+  async setServiceStatus(
+    tenantId: string,
+    id: string,
+    status: ServiceStatus,
+  ): Promise<ServiceResponse> {
+    const service = await this.findServiceOrThrow(tenantId, id);
+    if (service.status !== status) {
+      service.status = status;
+      await this.em.flush();
+    }
+    return { data: this.toServiceDto(service) };
+  }
+
+  async listServiceConsumptions(
+    tenantId: string,
+    serviceId: string,
+  ): Promise<ListServiceConsumptionsResponse> {
+    await this.findServiceOrThrow(tenantId, serviceId);
+    const items = await this.consumptionRepo.find(
+      { tenant_id: tenantId, service: serviceId },
+      { populate: ['product'], orderBy: { created_at: 'asc' }, filters: { tenant: false } },
+    );
+    return { data: items.map((c) => this.toConsumptionDto(c)) };
+  }
+
+  async addServiceConsumption(
+    tenantId: string,
+    serviceId: string,
+    dto: CreateServiceConsumptionDto,
+  ): Promise<ServiceConsumptionResponse> {
+    const service = await this.findServiceOrThrow(tenantId, serviceId);
+    const product = await this.productRepo.findOne(
+      { id: dto.product_id, tenant_id: tenantId },
+      NO_TENANT_FILTER,
+    );
+    if (!product) throw new BadRequestException('Product not found');
+
+    const existing = await this.consumptionRepo.findOne(
+      { tenant_id: tenantId, service: service.id, product: product.id },
+      NO_TENANT_FILTER,
+    );
+    if (existing) {
+      throw new ConflictException('Consumption already exists for this product');
+    }
+
+    const consumption = new ServiceConsumption();
+    consumption.tenant_id = tenantId;
+    consumption.service = service;
+    consumption.product = product;
+    consumption.quantity = dto.quantity.toFixed(3);
+
+    await this.em.persistAndFlush(consumption);
+    return { data: this.toConsumptionDto(consumption) };
+  }
+
+  async removeServiceConsumption(
+    tenantId: string,
+    serviceId: string,
+    productId: string,
+  ): Promise<void> {
+    await this.findServiceOrThrow(tenantId, serviceId);
+    const consumption = await this.consumptionRepo.findOne(
+      { tenant_id: tenantId, service: serviceId, product: productId },
+      NO_TENANT_FILTER,
+    );
+    if (!consumption) throw new NotFoundException('Consumption not found');
+    await this.em.removeAndFlush(consumption);
+  }
+
+  async listServiceDependencies(
+    tenantId: string,
+    serviceId: string,
+  ): Promise<ListServiceDependenciesResponse> {
+    await this.findServiceOrThrow(tenantId, serviceId);
+    const items = await this.dependencyRepo.find(
+      { tenant_id: tenantId, service: serviceId },
+      {
+        populate: ['depends_on_service'],
+        orderBy: { created_at: 'asc' },
+        filters: { tenant: false },
+      },
+    );
+    return { data: items.map((d) => this.toDependencyDto(d)) };
+  }
+
+  async addServiceDependency(
+    tenantId: string,
+    serviceId: string,
+    dto: CreateServiceDependencyDto,
+  ): Promise<ServiceDependencyResponse> {
+    if (serviceId === dto.depends_on_service_id) {
+      throw new BadRequestException('Service cannot depend on itself');
+    }
+    const service = await this.findServiceOrThrow(tenantId, serviceId);
+    const target = await this.serviceRepo.findOne(
+      { id: dto.depends_on_service_id, tenant_id: tenantId },
+      NO_TENANT_FILTER,
+    );
+    if (!target) throw new BadRequestException('Dependency target service not found');
+
+    const existing = await this.dependencyRepo.findOne(
+      { tenant_id: tenantId, service: service.id, depends_on_service: target.id },
+      NO_TENANT_FILTER,
+    );
+    if (existing) throw new ConflictException('Dependency already exists');
+
+    const dep = new ServiceDependency();
+    dep.tenant_id = tenantId;
+    dep.service = service;
+    dep.depends_on_service = target;
+
+    await this.em.persistAndFlush(dep);
+    return { data: this.toDependencyDto(dep) };
+  }
+
+  async removeServiceDependency(
+    tenantId: string,
+    serviceId: string,
+    dependencyId: string,
+  ): Promise<void> {
+    await this.findServiceOrThrow(tenantId, serviceId);
+    const dep = await this.dependencyRepo.findOne(
+      { id: dependencyId, tenant_id: tenantId, service: serviceId },
+      NO_TENANT_FILTER,
+    );
+    if (!dep) throw new NotFoundException('Dependency not found');
+    await this.em.removeAndFlush(dep);
+  }
+
+  private async findServiceOrThrow(tenantId: string, id: string): Promise<Service> {
+    const service = await this.serviceRepo.findOne({ id, tenant_id: tenantId }, NO_TENANT_FILTER);
+    if (!service) throw new NotFoundException('Service not found');
+    return service;
+  }
+
+  private toServiceDto(service: Service): ServiceDto {
+    return {
+      id: service.id,
+      tenant_id: service.tenant_id,
+      name: service.name,
+      description: service.description ?? null,
+      category: service.category?.id ?? null,
+      status: service.status,
+      duration_minutes: service.duration_minutes,
+      base_price: Number(service.base_price),
+      created_at: service.created_at.toISOString(),
+      updated_at: service.updated_at.toISOString(),
+    };
+  }
+
+  private toConsumptionDto(consumption: ServiceConsumption): ServiceConsumptionDto {
+    const product = consumption.product;
+    return {
+      id: consumption.id,
+      service_id: consumption.service.id,
+      product_id: product.id,
+      quantity: Number(consumption.quantity),
+      unit: product.unit,
+      product_name: product.name,
+      created_at: consumption.created_at.toISOString(),
+    };
+  }
+
+  private toDependencyDto(dep: ServiceDependency): ServiceDependencyDto {
+    return {
+      id: dep.id,
+      service_id: dep.service.id,
+      depends_on_service_id: dep.depends_on_service.id,
+      depends_on_service_name: dep.depends_on_service.name,
+      created_at: dep.created_at.toISOString(),
     };
   }
 }
