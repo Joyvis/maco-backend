@@ -20,6 +20,7 @@ import { CreateServiceDto } from './dto/create-service.dto';
 import { ListProductsQueryDto } from './dto/list-products-query.dto';
 import { ListServicesQueryDto } from './dto/list-services-query.dto';
 import { ListProductsResponse, Product as ProductDto, ProductResponse } from './dto/product.dto';
+import { ReorderCategoriesDto } from './dto/reorder-categories.dto';
 import {
   ListServiceConsumptionsResponse,
   ListServiceDependenciesResponse,
@@ -166,6 +167,27 @@ export class CatalogService {
 
     await this.em.flush();
     return { data: this.toCategoryDto(category) };
+  }
+
+  async reorderCategories(tenantId: string, dto: ReorderCategoriesDto): Promise<void> {
+    await this.em.transactional(async (em) => {
+      const uniqueIds = [...new Set(dto.items.map((i) => i.id))];
+      const categories = await em.find(
+        Category,
+        { id: { $in: uniqueIds }, tenant_id: tenantId },
+        NO_TENANT_FILTER,
+      );
+
+      if (categories.length !== uniqueIds.length) {
+        throw new NotFoundException('One or more categories not found');
+      }
+
+      const orderById = new Map(dto.items.map((i) => [i.id, i.display_order]));
+      for (const c of categories) {
+        const order = orderById.get(c.id);
+        if (order !== undefined) c.display_order = order;
+      }
+    });
   }
 
   async deleteCategory(tenantId: string, id: string): Promise<void> {

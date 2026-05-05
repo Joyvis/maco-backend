@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 
@@ -25,6 +26,7 @@ import { CreateServiceDto } from './dto/create-service.dto';
 import { ListProductsQueryDto } from './dto/list-products-query.dto';
 import { ListServicesQueryDto } from './dto/list-services-query.dto';
 import { ListProductsResponse, ProductResponse } from './dto/product.dto';
+import { ReorderCategoriesDto } from './dto/reorder-categories.dto';
 import {
   ListServiceConsumptionsResponse,
   ListServiceDependenciesResponse,
@@ -107,6 +109,16 @@ export class CatalogController {
     @CurrentUser() user: RequestUser,
   ): Promise<CategoryResponse> {
     return this.catalogService.createCategory(user.tenantId, dto);
+  }
+
+  @Put('categories/reorder')
+  @HttpCode(HttpStatus.OK)
+  async reorderCategories(
+    @Body() dto: ReorderCategoriesDto,
+    @CurrentUser() user: RequestUser,
+  ): Promise<{ data: null }> {
+    await this.catalogService.reorderCategories(user.tenantId, dto);
+    return { data: null };
   }
 
   @Patch('categories/:id')

@@ -518,4 +518,169 @@ describe('Catalog (e2e)', () => {
     expect(data[0].id).toBe(aId);
     expect(data[1].id).toBe(bId);
   });
+
+  // ──────────────────────────────────────────────────────
+  // Categories reorder
+  // ──────────────────────────────────────────────────────
+
+  it('PUT /catalog/categories/reorder — persists new order across the full set', async () => {
+    const t = await signUpAndLogin(app, 'Catalog Reorder Tenant', 'owner@catalog-reorder.com');
+    createdTenantIds.push(t.tenantId);
+
+    const create = (name: string) =>
+      request(app.getHttpServer())
+        .post('/catalog/categories')
+        .set('Authorization', `Bearer ${t.accessToken}`)
+        .send({ name })
+        .expect(201);
+
+    const aId = ((await create('A')).body as { data: { id: string } }).data.id;
+    const bId = ((await create('B')).body as { data: { id: string } }).data.id;
+    const cId = ((await create('C')).body as { data: { id: string } }).data.id;
+
+    const reorderRes = await request(app.getHttpServer())
+      .put('/catalog/categories/reorder')
+      .set('Authorization', `Bearer ${t.accessToken}`)
+      .send({
+        items: [
+          { id: cId, display_order: 0 },
+          { id: aId, display_order: 1 },
+          { id: bId, display_order: 2 },
+        ],
+      })
+      .expect(200);
+
+    expect(reorderRes.body).toEqual({ data: null });
+
+    const listRes = await request(app.getHttpServer())
+      .get('/catalog/categories')
+      .set('Authorization', `Bearer ${t.accessToken}`)
+      .expect(200);
+    const data = (listRes.body as { data: Array<{ id: string; display_order?: number }> }).data;
+    expect(data.map((c) => c.id)).toEqual([cId, aId, bId]);
+    expect(data.map((c) => c.display_order)).toEqual([0, 1, 2]);
+  });
+
+  it('PUT /catalog/categories/reorder — idempotent: re-sending same payload is a no-op', async () => {
+    const t = await signUpAndLogin(app, 'Catalog Reorder Idem', 'owner@catalog-reorder-idem.com');
+    createdTenantIds.push(t.tenantId);
+
+    const create = (name: string) =>
+      request(app.getHttpServer())
+        .post('/catalog/categories')
+        .set('Authorization', `Bearer ${t.accessToken}`)
+        .send({ name })
+        .expect(201);
+    const aId = ((await create('A')).body as { data: { id: string } }).data.id;
+    const bId = ((await create('B')).body as { data: { id: string } }).data.id;
+
+    const payload = {
+      items: [
+        { id: aId, display_order: 0 },
+        { id: bId, display_order: 1 },
+      ],
+    };
+
+    await request(app.getHttpServer())
+      .put('/catalog/categories/reorder')
+      .set('Authorization', `Bearer ${t.accessToken}`)
+      .send(payload)
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .put('/catalog/categories/reorder')
+      .set('Authorization', `Bearer ${t.accessToken}`)
+      .send(payload)
+      .expect(200);
+
+    const listRes = await request(app.getHttpServer())
+      .get('/catalog/categories')
+      .set('Authorization', `Bearer ${t.accessToken}`)
+      .expect(200);
+    const data = (listRes.body as { data: Array<{ id: string }> }).data;
+    expect(data.map((c) => c.id)).toEqual([aId, bId]);
+  });
+
+  it('PUT /catalog/categories/reorder — 400 on missing items', async () => {
+    await request(app.getHttpServer())
+      .put('/catalog/categories/reorder')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({})
+      .expect(400);
+  });
+
+  it('PUT /catalog/categories/reorder — 400 on empty items array', async () => {
+    await request(app.getHttpServer())
+      .put('/catalog/categories/reorder')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({ items: [] })
+      .expect(400);
+  });
+
+  it('PUT /catalog/categories/reorder — 400 on non-UUID id', async () => {
+    await request(app.getHttpServer())
+      .put('/catalog/categories/reorder')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({ items: [{ id: 'not-a-uuid', display_order: 0 }] })
+      .expect(400);
+  });
+
+  it('PUT /catalog/categories/reorder — 400 on negative display_order', async () => {
+    const catRes = await request(app.getHttpServer())
+      .post('/catalog/categories')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({ name: 'NegOrder' })
+      .expect(201);
+    const id = (catRes.body as { data: { id: string } }).data.id;
+
+    await request(app.getHttpServer())
+      .put('/catalog/categories/reorder')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({ items: [{ id, display_order: -1 }] })
+      .expect(400);
+  });
+
+  it('PUT /catalog/categories/reorder — 404 when an id is unknown', async () => {
+    await request(app.getHttpServer())
+      .put('/catalog/categories/reorder')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({
+        items: [{ id: '01960000-0000-7000-8000-0000000000ff', display_order: 0 }],
+      })
+      .expect(404);
+  });
+
+  it('PUT /catalog/categories/reorder — tenant isolation: B cannot reorder A rows', async () => {
+    const a = await signUpAndLogin(app, 'Catalog Reorder Iso A', 'owner@catalog-reorder-iso-a.com');
+    createdTenantIds.push(a.tenantId);
+    const b = await signUpAndLogin(app, 'Catalog Reorder Iso B', 'owner@catalog-reorder-iso-b.com');
+    createdTenantIds.push(b.tenantId);
+
+    const aCat = await request(app.getHttpServer())
+      .post('/catalog/categories')
+      .set('Authorization', `Bearer ${a.accessToken}`)
+      .send({ name: 'OwnedByA' })
+      .expect(201);
+    const aCatId = (aCat.body as { data: { id: string } }).data.id;
+
+    await request(app.getHttpServer())
+      .patch(`/catalog/categories/${aCatId}`)
+      .set('Authorization', `Bearer ${a.accessToken}`)
+      .send({ display_order: 7 })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .put('/catalog/categories/reorder')
+      .set('Authorization', `Bearer ${b.accessToken}`)
+      .send({ items: [{ id: aCatId, display_order: 99 }] })
+      .expect(404);
+
+    const listRes = await request(app.getHttpServer())
+      .get('/catalog/categories')
+      .set('Authorization', `Bearer ${a.accessToken}`)
+      .expect(200);
+    const data = (listRes.body as { data: Array<{ id: string; display_order?: number }> }).data;
+    const found = data.find((c) => c.id === aCatId);
+    expect(found?.display_order).toBe(7);
+  });
 });
