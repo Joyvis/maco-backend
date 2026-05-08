@@ -29,6 +29,8 @@ src/
   subscription/          # Plans, Subscriptions
   support/               # Tickets
   notification/          # Email, SMS, Push
+  shop/                  # Public Shop Profile (GET /shop/:slug — unauthenticated)
+  seeds/                 # One-off seed scripts (run via `pnpm seed:*`)
 test/                    # E2E tests
 ```
 
@@ -48,6 +50,8 @@ npm run migration:create  # Generate a migration from entity diff
 npm run migration:up      # Apply pending migrations
 npm run migration:down    # Revert last migration
 npm run migration:fresh   # Drop + re-apply all migrations
+pnpm seed:shop            # Idempotently seed the demo Shop Profile (slug, services, staff)
+                          # against the existing local TA tenant. Prints the demo URL.
 ```
 
 ## MikroORM

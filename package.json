@@ -25,7 +25,9 @@
     "migration:create": "mikro-orm migration:create",
     "migration:up": "mikro-orm migration:up",
     "migration:down": "mikro-orm migration:down",
-    "migration:fresh": "mikro-orm migration:fresh"
+    "migration:fresh": "mikro-orm migration:fresh",
+    "seed:shop": "ts-node -r tsconfig-paths/register src/seeds/shop-demo.seed.ts",
+    "seed:demo": "ts-node -r tsconfig-paths/register src/seeds/demo.seed.ts"
   },
   "mikro-orm": {
     "useTsNode": true,

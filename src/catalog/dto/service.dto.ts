@@ -50,8 +50,10 @@ export interface ServiceConsumptionResponse {
 export interface ServiceDependency {
   id: string;
   service_id: string;
+  service_name?: string;
   depends_on_service_id: string;
   depends_on_service_name?: string;
+  auto_include: boolean;
   created_at: string;
 }
 

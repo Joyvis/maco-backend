@@ -1,4 +1,4 @@
-import { Entity, ManyToOne, Unique } from '@mikro-orm/core';
+import { Entity, ManyToOne, Property, Unique } from '@mikro-orm/core';
 import { TenantScopedEntity } from '@shared/entities/tenant-scoped.entity';
 
 import { Service } from './service.entity';
@@ -11,4 +11,7 @@ export class ServiceDependency extends TenantScopedEntity {
 
   @ManyToOne(() => Service, { fieldName: 'depends_on_service_id', deleteRule: 'cascade' })
   depends_on_service!: Service;
+
+  @Property({ type: 'boolean' })
+  auto_include: boolean = true;
 }

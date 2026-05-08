@@ -12,11 +12,20 @@ import {
   CategoryResponse,
   ListCategoriesResponse,
 } from './dto/category.dto';
+import {
+  Combo as ComboDto,
+  ComboItem as ComboItemResponseDto,
+  ComboResponse,
+  ComboSummary as ComboSummaryDto,
+  ListCombosResponse,
+} from './dto/combo.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
+import { CreateComboDto } from './dto/create-combo.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { CreateServiceConsumptionDto } from './dto/create-service-consumption.dto';
 import { CreateServiceDependencyDto } from './dto/create-service-dependency.dto';
 import { CreateServiceDto } from './dto/create-service.dto';
+import { ListCombosQueryDto } from './dto/list-combos-query.dto';
 import { ListProductsQueryDto } from './dto/list-products-query.dto';
 import { ListServicesQueryDto } from './dto/list-services-query.dto';
 import { ListProductsResponse, Product as ProductDto, ProductResponse } from './dto/product.dto';
@@ -33,9 +42,12 @@ import {
   ServiceResponse,
 } from './dto/service.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { UpdateComboDto } from './dto/update-combo.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { Category } from './entities/category.entity';
+import { ComboItem, ComboItemType } from './entities/combo-item.entity';
+import { Combo, ComboStatus } from './entities/combo.entity';
 import { Product, ProductStatus } from './entities/product.entity';
 import { ServiceConsumption } from './entities/service-consumption.entity';
 import { ServiceDependency } from './entities/service-dependency.entity';
@@ -53,6 +65,7 @@ export class CatalogService {
     private readonly consumptionRepo: EntityRepository<ServiceConsumption>,
     @InjectRepository(ServiceDependency)
     private readonly dependencyRepo: EntityRepository<ServiceDependency>,
+    @InjectRepository(Combo) private readonly comboRepo: EntityRepository<Combo>,
     private readonly em: EntityManager,
   ) {}
 
@@ -419,6 +432,7 @@ export class CatalogService {
     dep.tenant_id = tenantId;
     dep.service = service;
     dep.depends_on_service = target;
+    if (dto.auto_include !== undefined) dep.auto_include = dto.auto_include;
 
     await this.em.persistAndFlush(dep);
     return { data: this.toDependencyDto(dep) };
@@ -475,10 +489,222 @@ export class CatalogService {
   private toDependencyDto(dep: ServiceDependency): ServiceDependencyDto {
     return {
       id: dep.id,
-      service_id: dep.service.id,
+      service_id: dep.depends_on_service.id,
+      service_name: dep.depends_on_service.name,
       depends_on_service_id: dep.depends_on_service.id,
       depends_on_service_name: dep.depends_on_service.name,
+      auto_include: dep.auto_include,
       created_at: dep.created_at.toISOString(),
+    };
+  }
+
+  async listCombos(tenantId: string, query: ListCombosQueryDto): Promise<ListCombosResponse> {
+    const page = query.page ?? 1;
+    const page_size = query.page_size ?? 20;
+
+    const where: Record<string, unknown> = { tenant_id: tenantId };
+    if (query.status) where.status = query.status;
+
+    const [combos, total] = await this.comboRepo.findAndCount(where, {
+      orderBy: { created_at: 'desc' },
+      limit: page_size,
+      offset: (page - 1) * page_size,
+      filters: { tenant: false },
+    });
+
+    const counts = new Map<string, number>();
+    if (combos.length > 0) {
+      const ids = combos.map((c) => c.id);
+      const rows = (await this.em.getConnection().execute(
+        `select combo_id, count(*)::int as item_count from combo_items
+           where tenant_id = ? and combo_id in (${ids.map(() => '?').join(',')})
+           group by combo_id`,
+        [tenantId, ...ids],
+      )) as Array<{ combo_id: string; item_count: string | number }>;
+      for (const r of rows) counts.set(r.combo_id, Number(r.item_count) || 0);
+    }
+
+    return {
+      data: combos.map((c) => this.toComboSummaryDto(c, counts.get(c.id) ?? 0)),
+      meta: {
+        total,
+        page,
+        page_size,
+        total_pages: Math.max(1, Math.ceil(total / page_size)),
+      },
+    };
+  }
+
+  async createCombo(tenantId: string, dto: CreateComboDto): Promise<ComboResponse> {
+    return this.em.transactional(async (em) => {
+      const resolved = await this.resolveComboItems(em, tenantId, dto.items);
+
+      const combo = new Combo();
+      combo.tenant_id = tenantId;
+      combo.name = dto.name.trim();
+      if (dto.description !== undefined) combo.description = dto.description;
+      combo.discount_percentage = dto.discount_percentage.toFixed(2);
+      combo.status = ComboStatus.ACTIVE;
+
+      em.persist(combo);
+
+      for (const r of resolved) {
+        const item = new ComboItem();
+        item.tenant_id = tenantId;
+        item.combo = combo;
+        item.item_type = r.item_type;
+        if (r.item_type === ComboItemType.SERVICE) {
+          item.service = r.service;
+        } else {
+          item.product = r.product;
+        }
+        em.persist(item);
+        combo.items.add(item);
+      }
+
+      await em.flush();
+      return { data: this.toComboDto(combo) };
+    });
+  }
+
+  async getCombo(tenantId: string, id: string): Promise<ComboResponse> {
+    const combo = await this.comboRepo.findOne({ id, tenant_id: tenantId }, NO_TENANT_FILTER);
+    if (!combo) throw new NotFoundException('Combo not found');
+    await this.em.populate(combo, ['items.service', 'items.product'], NO_TENANT_FILTER);
+    return { data: this.toComboDto(combo) };
+  }
+
+  async updateCombo(tenantId: string, id: string, dto: UpdateComboDto): Promise<ComboResponse> {
+    return this.em.transactional(async (em) => {
+      const combo = await em.findOne(Combo, { id, tenant_id: tenantId }, NO_TENANT_FILTER);
+      if (!combo) throw new NotFoundException('Combo not found');
+      await em.populate(combo, ['items.service', 'items.product'], NO_TENANT_FILTER);
+
+      if (dto.name !== undefined) combo.name = dto.name.trim();
+      if (dto.description !== undefined) combo.description = dto.description;
+      if (dto.discount_percentage !== undefined) {
+        combo.discount_percentage = dto.discount_percentage.toFixed(2);
+      }
+
+      if (dto.items !== undefined) {
+        const resolved = await this.resolveComboItems(em, tenantId, dto.items);
+        combo.items.removeAll();
+        await em.flush();
+
+        for (const r of resolved) {
+          const item = new ComboItem();
+          item.tenant_id = tenantId;
+          item.combo = combo;
+          item.item_type = r.item_type;
+          if (r.item_type === ComboItemType.SERVICE) {
+            item.service = r.service;
+          } else {
+            item.product = r.product;
+          }
+          em.persist(item);
+          combo.items.add(item);
+        }
+      }
+
+      await em.flush();
+      return { data: this.toComboDto(combo) };
+    });
+  }
+
+  async setComboStatus(tenantId: string, id: string, status: ComboStatus): Promise<ComboResponse> {
+    const combo = await this.comboRepo.findOne({ id, tenant_id: tenantId }, NO_TENANT_FILTER);
+    if (!combo) throw new NotFoundException('Combo not found');
+
+    if (combo.status !== status) {
+      combo.status = status;
+      await this.em.flush();
+    }
+    await this.em.populate(combo, ['items.service', 'items.product'], NO_TENANT_FILTER);
+    return { data: this.toComboDto(combo) };
+  }
+
+  private async resolveComboItems(
+    em: EntityManager,
+    tenantId: string,
+    items: Array<{ item_type: ComboItemType; item_id: string }>,
+  ): Promise<
+    Array<
+      | { item_type: ComboItemType.SERVICE; service: Service }
+      | { item_type: ComboItemType.PRODUCT; product: Product }
+    >
+  > {
+    const seen = new Set<string>();
+    const resolved: Array<
+      | { item_type: ComboItemType.SERVICE; service: Service }
+      | { item_type: ComboItemType.PRODUCT; product: Product }
+    > = [];
+
+    for (const i of items) {
+      const key = `${i.item_type}:${i.item_id}`;
+      if (seen.has(key)) {
+        throw new BadRequestException(`Duplicate combo item: ${key}`);
+      }
+      seen.add(key);
+
+      if (i.item_type === ComboItemType.SERVICE) {
+        const service = await em.findOne(
+          Service,
+          { id: i.item_id, tenant_id: tenantId },
+          NO_TENANT_FILTER,
+        );
+        if (!service) throw new BadRequestException(`Invalid combo item: ${key}`);
+        resolved.push({ item_type: ComboItemType.SERVICE, service });
+      } else {
+        const product = await em.findOne(
+          Product,
+          { id: i.item_id, tenant_id: tenantId },
+          NO_TENANT_FILTER,
+        );
+        if (!product) throw new BadRequestException(`Invalid combo item: ${key}`);
+        resolved.push({ item_type: ComboItemType.PRODUCT, product });
+      }
+    }
+
+    return resolved;
+  }
+
+  private toComboSummaryDto(combo: Combo, item_count: number): ComboSummaryDto {
+    return {
+      id: combo.id,
+      name: combo.name,
+      description: combo.description,
+      discount_percentage: Number(combo.discount_percentage),
+      status: combo.status,
+      item_count,
+      created_at: combo.created_at.toISOString(),
+    };
+  }
+
+  private toComboDto(combo: Combo): ComboDto {
+    const items: ComboItemResponseDto[] = combo.items.getItems().map((item) => {
+      if (item.item_type === ComboItemType.SERVICE) {
+        const service = item.service!;
+        return {
+          id: item.id,
+          item_type: ComboItemType.SERVICE,
+          item_id: service.id,
+          name: service.name,
+          base_price: Number(service.base_price),
+        };
+      }
+      const product = item.product!;
+      return {
+        id: item.id,
+        item_type: ComboItemType.PRODUCT,
+        item_id: product.id,
+        name: product.name,
+        base_price: Number(product.base_price),
+      };
+    });
+
+    return {
+      ...this.toComboSummaryDto(combo, items.length),
+      items,
     };
   }
 }

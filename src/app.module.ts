@@ -14,6 +14,7 @@ import { NotificationModule } from './notification/notification.module';
 import { PricingModule } from './pricing/pricing.module';
 import { SchedulingModule } from './scheduling/scheduling.module';
 import { SharedModule } from './shared/shared.module';
+import { ShopModule } from './shop/shop.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { SupportModule } from './support/support.module';
 import { TenancyModule } from './tenancy/tenancy.module';
@@ -33,6 +34,7 @@ import { TenancyModule } from './tenancy/tenancy.module';
     SubscriptionModule,
     SupportModule,
     NotificationModule,
+    ShopModule,
   ],
   controllers: [AppController],
   providers: [AppService],

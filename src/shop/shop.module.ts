@@ -1,5 +1,5 @@
+import { Category } from '@catalog/entities/category.entity';
 import { Service } from '@catalog/entities/service.entity';
-import { SaleOrder } from '@commerce/entities/sale-order.entity';
 import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { Module } from '@nestjs/common';
 import { Role } from '@tenancy/entities/role.entity';
@@ -8,25 +8,22 @@ import { Tenant } from '@tenancy/entities/tenant.entity';
 import { UserRole } from '@tenancy/entities/user-role.entity';
 import { User } from '@tenancy/entities/user.entity';
 
-import { StaffSchedule } from './entities/staff-schedule.entity';
-import { SchedulingController } from './scheduling.controller';
-import { SchedulingService } from './scheduling.service';
+import { ShopController } from './shop.controller';
+import { ShopService } from './shop.service';
 
 @Module({
   imports: [
     MikroOrmModule.forFeature([
-      Service,
-      SaleOrder,
       Tenant,
+      Service,
+      Category,
       User,
       UserRole,
       Role,
       StaffQualification,
-      StaffSchedule,
     ]),
   ],
-  controllers: [SchedulingController],
-  providers: [SchedulingService],
-  exports: [SchedulingService],
+  controllers: [ShopController],
+  providers: [ShopService],
 })
-export class SchedulingModule {}
+export class ShopModule {}

@@ -5,6 +5,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CatalogController } from './catalog.controller';
 import { CatalogService } from './catalog.service';
 import { Category } from './entities/category.entity';
+import { Combo } from './entities/combo.entity';
 import { Product } from './entities/product.entity';
 import { ServiceConsumption } from './entities/service-consumption.entity';
 import { ServiceDependency } from './entities/service-dependency.entity';
@@ -23,6 +24,7 @@ describe('CatalogController', () => {
         { provide: getRepositoryToken(Service), useValue: {} },
         { provide: getRepositoryToken(ServiceConsumption), useValue: {} },
         { provide: getRepositoryToken(ServiceDependency), useValue: {} },
+        { provide: getRepositoryToken(Combo), useValue: {} },
         { provide: EntityManager, useValue: {} },
       ],
     }).compile();

@@ -42,4 +42,16 @@ export class Tenant extends BaseEntity {
 
   @Property({ type: 'timestamptz', nullable: true })
   trial_ends_at?: Date;
+
+  @Property({ type: 'varchar', length: 255, nullable: true })
+  slug?: string;
+
+  @Property({ type: 'varchar', length: 1024, nullable: true })
+  logo_url?: string;
+
+  @Property({ type: 'varchar', length: 255, nullable: true })
+  city?: string;
+
+  @Property({ type: 'decimal', precision: 3, scale: 2, nullable: true })
+  rating?: string;
 }

@@ -18,11 +18,14 @@ import { RequestUser } from '../tenancy/auth/jwt-payload.interface';
 
 import { CatalogService } from './catalog.service';
 import { CategoryResponse, ListCategoriesResponse } from './dto/category.dto';
+import { ComboResponse, ListCombosResponse } from './dto/combo.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
+import { CreateComboDto } from './dto/create-combo.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { CreateServiceConsumptionDto } from './dto/create-service-consumption.dto';
 import { CreateServiceDependencyDto } from './dto/create-service-dependency.dto';
 import { CreateServiceDto } from './dto/create-service.dto';
+import { ListCombosQueryDto } from './dto/list-combos-query.dto';
 import { ListProductsQueryDto } from './dto/list-products-query.dto';
 import { ListServicesQueryDto } from './dto/list-services-query.dto';
 import { ListProductsResponse, ProductResponse } from './dto/product.dto';
@@ -36,8 +39,10 @@ import {
   ServiceResponse,
 } from './dto/service.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { UpdateComboDto } from './dto/update-combo.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
+import { ComboStatus } from './entities/combo.entity';
 import { ProductStatus } from './entities/product.entity';
 import { ServiceStatus } from './entities/service.entity';
 
@@ -245,5 +250,48 @@ export class CatalogController {
     @CurrentUser() user: RequestUser,
   ): Promise<void> {
     return this.catalogService.removeServiceDependency(user.tenantId, id, dependencyId);
+  }
+
+  @Get('combos')
+  listCombos(
+    @Query() query: ListCombosQueryDto,
+    @CurrentUser() user: RequestUser,
+  ): Promise<ListCombosResponse> {
+    return this.catalogService.listCombos(user.tenantId, query);
+  }
+
+  @Post('combos')
+  @HttpCode(HttpStatus.CREATED)
+  createCombo(
+    @Body() dto: CreateComboDto,
+    @CurrentUser() user: RequestUser,
+  ): Promise<ComboResponse> {
+    return this.catalogService.createCombo(user.tenantId, dto);
+  }
+
+  @Get('combos/:id')
+  getCombo(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<ComboResponse> {
+    return this.catalogService.getCombo(user.tenantId, id);
+  }
+
+  @Patch('combos/:id')
+  updateCombo(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateComboDto,
+    @CurrentUser() user: RequestUser,
+  ): Promise<ComboResponse> {
+    return this.catalogService.updateCombo(user.tenantId, id, dto);
+  }
+
+  @Post('combos/:id/archive')
+  @HttpCode(HttpStatus.OK)
+  archiveCombo(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<ComboResponse> {
+    return this.catalogService.setComboStatus(user.tenantId, id, ComboStatus.ARCHIVED);
   }
 }

@@ -139,6 +139,22 @@
             "standard"
           ]
         },
+        "combo_item_type": {
+          "name": "combo_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product"
+          ]
+        },
+        "combo_status": {
+          "name": "combo_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "archived"
+          ]
+        },
         "product_status": {
           "name": "product_status",
           "schema": "public",
@@ -157,6 +173,650 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "sale_order_state": {
+          "name": "sale_order_state",
+          "schema": "public",
+          "items": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
+          ]
+        },
+        "service_status": {
+          "name": "service_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "schema": "public",
+          "items": [
+            "free_trial",
+            "paid"
+          ]
+        },
+        "tenant_status": {
+          "name": "tenant_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ]
+        },
+        "user_state": {
+          "name": "user_state",
+          "schema": "public",
+          "items": [
+            "active",
+            "inactive",
+            "suspended"
+          ]
+        }
+      },
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "combo_id": {
+          "name": "combo_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "item_type": {
+          "name": "item_type",
+          "type": "combo_item_type",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [
+            "service",
+            "product"
+          ],
+          "mappedType": "unknown",
+          "nativeEnumName": "combo_item_type"
+        },
+        "service_id": {
+          "name": "service_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "product_id": {
+          "name": "product_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        }
+      },
+      "name": "combo_items",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "combo_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "combo_items_combo_id_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "combo_id",
+            "product_id"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "combo_items_combo_product_unique",
+          "unique": true,
+          "primary": false,
+          "expression": "CREATE UNIQUE INDEX combo_items_combo_product_unique ON public.combo_items USING btree (combo_id, product_id) WHERE (product_id IS NOT NULL)"
+        },
+        {
+          "columnNames": [
+            "combo_id",
+            "service_id"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "combo_items_combo_service_unique",
+          "unique": true,
+          "primary": false,
+          "expression": "CREATE UNIQUE INDEX combo_items_combo_service_unique ON public.combo_items USING btree (combo_id, service_id) WHERE (service_id IS NOT NULL)"
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "combo_items_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "product_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "combo_items_product_id_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "service_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "combo_items_service_id_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "tenant_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "combo_items_tenant_id_index",
+          "unique": false,
+          "primary": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "combo_items_polymorphic_check",
+          "columnName": "product_id",
+          "definition": "CHECK ((((item_type = 'service'::combo_item_type) AND (service_id IS NOT NULL) AND (product_id IS NULL)) OR ((item_type = 'product'::combo_item_type) AND (product_id IS NOT NULL) AND (service_id IS NULL))))",
+          "expression": "((item_type = 'service'::combo_item_type) AND (service_id IS NOT NULL) AND (product_id IS NULL)) OR ((item_type = 'product'::combo_item_type) AND (product_id IS NOT NULL) AND (service_id IS NULL))"
+        }
+      ],
+      "foreignKeys": {
+        "combo_items_combo_id_fkey": {
+          "columnNames": [
+            "combo_id"
+          ],
+          "constraintName": "combo_items_combo_id_fkey",
+          "localTableName": "public.combo_items",
+          "referencedTableName": "public.combos",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        },
+        "combo_items_product_id_fkey": {
+          "columnNames": [
+            "product_id"
+          ],
+          "constraintName": "combo_items_product_id_fkey",
+          "localTableName": "public.combo_items",
+          "referencedTableName": "public.products",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        },
+        "combo_items_service_id_fkey": {
+          "columnNames": [
+            "service_id"
+          ],
+          "constraintName": "combo_items_service_id_fkey",
+          "localTableName": "public.combo_items",
+          "referencedTableName": "public.services",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        }
+      },
+      "nativeEnums": {
+        "account_type": {
+          "name": "account_type",
+          "schema": "public",
+          "items": [
+            "platform",
+            "wlc",
+            "standard"
+          ]
+        },
+        "combo_item_type": {
+          "name": "combo_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product"
+          ]
+        },
+        "combo_status": {
+          "name": "combo_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "archived"
+          ]
+        },
+        "product_status": {
+          "name": "product_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "product_unit": {
+          "name": "product_unit",
+          "schema": "public",
+          "items": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
+          ]
+        },
+        "sale_order_state": {
+          "name": "sale_order_state",
+          "schema": "public",
+          "items": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
+          ]
+        },
+        "service_status": {
+          "name": "service_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "schema": "public",
+          "items": [
+            "free_trial",
+            "paid"
+          ]
+        },
+        "tenant_status": {
+          "name": "tenant_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ]
+        },
+        "user_state": {
+          "name": "user_state",
+          "schema": "public",
+          "items": [
+            "active",
+            "inactive",
+            "suspended"
+          ]
+        }
+      },
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "discount_percentage": {
+          "name": "discount_percentage",
+          "type": "numeric(5,2)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 5,
+          "scale": 2,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "decimal"
+        },
+        "status": {
+          "name": "status",
+          "type": "combo_status",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "'active'",
+          "comment": null,
+          "enumItems": [
+            "active",
+            "archived"
+          ],
+          "mappedType": "unknown",
+          "nativeEnumName": "combo_status"
+        }
+      },
+      "name": "combos",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "combos_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "tenant_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "combos_tenant_id_index",
+          "unique": false,
+          "primary": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "combos_discount_percentage_check",
+          "columnName": "discount_percentage",
+          "definition": "CHECK (((discount_percentage >= (0)::numeric) AND (discount_percentage <= (100)::numeric)))",
+          "expression": "discount_percentage >= (0) AND discount_percentage <= (100)"
+        }
+      ],
+      "foreignKeys": {},
+      "nativeEnums": {
+        "account_type": {
+          "name": "account_type",
+          "schema": "public",
+          "items": [
+            "platform",
+            "wlc",
+            "standard"
+          ]
+        },
+        "combo_item_type": {
+          "name": "combo_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product"
+          ]
+        },
+        "combo_status": {
+          "name": "combo_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "archived"
+          ]
+        },
+        "product_status": {
+          "name": "product_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "product_unit": {
+          "name": "product_unit",
+          "schema": "public",
+          "items": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
+          ]
+        },
+        "sale_order_state": {
+          "name": "sale_order_state",
+          "schema": "public",
+          "items": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
           ]
         },
         "service_status": {
@@ -434,6 +1094,22 @@
             "standard"
           ]
         },
+        "combo_item_type": {
+          "name": "combo_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product"
+          ]
+        },
+        "combo_status": {
+          "name": "combo_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "archived"
+          ]
+        },
         "product_status": {
           "name": "product_status",
           "schema": "public",
@@ -452,6 +1128,20 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "sale_order_state": {
+          "name": "sale_order_state",
+          "schema": "public",
+          "items": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
           ]
         },
         "service_status": {
@@ -669,6 +1359,22 @@
             "standard"
           ]
         },
+        "combo_item_type": {
+          "name": "combo_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product"
+          ]
+        },
+        "combo_status": {
+          "name": "combo_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "archived"
+          ]
+        },
         "product_status": {
           "name": "product_status",
           "schema": "public",
@@ -687,6 +1393,268 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "sale_order_state": {
+          "name": "sale_order_state",
+          "schema": "public",
+          "items": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
+          ]
+        },
+        "service_status": {
+          "name": "service_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "schema": "public",
+          "items": [
+            "free_trial",
+            "paid"
+          ]
+        },
+        "tenant_status": {
+          "name": "tenant_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ]
+        },
+        "user_state": {
+          "name": "user_state",
+          "schema": "public",
+          "items": [
+            "active",
+            "inactive",
+            "suspended"
+          ]
+        }
+      },
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "description": {
+          "name": "description",
+          "type": "varchar(500)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 500,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "refund_percentage": {
+          "name": "refund_percentage",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "bool",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "true",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "boolean"
+        }
+      },
+      "name": "refund_policies",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "refund_policies_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "tenant_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "refund_policies_tenant_id_index",
+          "unique": false,
+          "primary": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "refund_policies_pct_check",
+          "columnName": "refund_percentage",
+          "definition": "CHECK (((refund_percentage >= 0) AND (refund_percentage <= 100)))",
+          "expression": "(refund_percentage >= 0) AND (refund_percentage <= 100)"
+        }
+      ],
+      "foreignKeys": {},
+      "nativeEnums": {
+        "account_type": {
+          "name": "account_type",
+          "schema": "public",
+          "items": [
+            "platform",
+            "wlc",
+            "standard"
+          ]
+        },
+        "combo_item_type": {
+          "name": "combo_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product"
+          ]
+        },
+        "combo_status": {
+          "name": "combo_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "archived"
+          ]
+        },
+        "product_status": {
+          "name": "product_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "product_unit": {
+          "name": "product_unit",
+          "schema": "public",
+          "items": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
+          ]
+        },
+        "sale_order_state": {
+          "name": "sale_order_state",
+          "schema": "public",
+          "items": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
           ]
         },
         "service_status": {
@@ -864,6 +1832,22 @@
             "standard"
           ]
         },
+        "combo_item_type": {
+          "name": "combo_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product"
+          ]
+        },
+        "combo_status": {
+          "name": "combo_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "archived"
+          ]
+        },
         "product_status": {
           "name": "product_status",
           "schema": "public",
@@ -882,6 +1866,799 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "sale_order_state": {
+          "name": "sale_order_state",
+          "schema": "public",
+          "items": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
+          ]
+        },
+        "service_status": {
+          "name": "service_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "schema": "public",
+          "items": [
+            "free_trial",
+            "paid"
+          ]
+        },
+        "tenant_status": {
+          "name": "tenant_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ]
+        },
+        "user_state": {
+          "name": "user_state",
+          "schema": "public",
+          "items": [
+            "active",
+            "inactive",
+            "suspended"
+          ]
+        }
+      },
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "sale_order_id": {
+          "name": "sale_order_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "service_id": {
+          "name": "service_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "price": {
+          "name": "price",
+          "type": "numeric(12,2)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 12,
+          "scale": 2,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "decimal"
+        },
+        "is_dependency": {
+          "name": "is_dependency",
+          "type": "bool",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "false",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "boolean"
+        }
+      },
+      "name": "sale_order_items",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "sale_order_items_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "sale_order_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "sale_order_items_sale_order_id_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "tenant_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "sale_order_items_tenant_id_index",
+          "unique": false,
+          "primary": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "sale_order_items_price_check",
+          "columnName": "price",
+          "definition": "CHECK ((price >= (0)::numeric))",
+          "expression": "price >= 0"
+        }
+      ],
+      "foreignKeys": {
+        "sale_order_items_sale_order_id_fkey": {
+          "columnNames": [
+            "sale_order_id"
+          ],
+          "constraintName": "sale_order_items_sale_order_id_fkey",
+          "localTableName": "public.sale_order_items",
+          "referencedTableName": "public.sale_orders",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        },
+        "sale_order_items_service_id_fkey": {
+          "columnNames": [
+            "service_id"
+          ],
+          "constraintName": "sale_order_items_service_id_fkey",
+          "localTableName": "public.sale_order_items",
+          "referencedTableName": "public.services",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "no action"
+        }
+      },
+      "nativeEnums": {
+        "account_type": {
+          "name": "account_type",
+          "schema": "public",
+          "items": [
+            "platform",
+            "wlc",
+            "standard"
+          ]
+        },
+        "combo_item_type": {
+          "name": "combo_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product"
+          ]
+        },
+        "combo_status": {
+          "name": "combo_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "archived"
+          ]
+        },
+        "product_status": {
+          "name": "product_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "product_unit": {
+          "name": "product_unit",
+          "schema": "public",
+          "items": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
+          ]
+        },
+        "sale_order_state": {
+          "name": "sale_order_state",
+          "schema": "public",
+          "items": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
+          ]
+        },
+        "service_status": {
+          "name": "service_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "schema": "public",
+          "items": [
+            "free_trial",
+            "paid"
+          ]
+        },
+        "tenant_status": {
+          "name": "tenant_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ]
+        },
+        "user_state": {
+          "name": "user_state",
+          "schema": "public",
+          "items": [
+            "active",
+            "inactive",
+            "suspended"
+          ]
+        }
+      },
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "service_id": {
+          "name": "service_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": true,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "state": {
+          "name": "state",
+          "type": "sale_order_state",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
+          ],
+          "mappedType": "unknown",
+          "nativeEnumName": "sale_order_state"
+        },
+        "scheduled_at": {
+          "name": "scheduled_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "scheduled_end_at": {
+          "name": "scheduled_end_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "total_amount": {
+          "name": "total_amount",
+          "type": "numeric(12,2)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 12,
+          "scale": 2,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "decimal"
+        },
+        "requires_payment": {
+          "name": "requires_payment",
+          "type": "bool",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "false",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "boolean"
+        },
+        "payment_url": {
+          "name": "payment_url",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "cancellation_reason": {
+          "name": "cancellation_reason",
+          "type": "varchar(64)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 64,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "cancelled_at": {
+          "name": "cancelled_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        }
+      },
+      "name": "sale_orders",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "staff_id",
+            "scheduled_at"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "sale_orders_active_slot_unique",
+          "unique": true,
+          "primary": false,
+          "expression": "CREATE UNIQUE INDEX sale_orders_active_slot_unique ON public.sale_orders USING btree (staff_id, scheduled_at) WHERE ((state = ANY (ARRAY['pending_payment'::sale_order_state, 'pending_checkout'::sale_order_state, 'confirmed'::sale_order_state, 'checked_in'::sale_order_state, 'in_progress'::sale_order_state])) AND (staff_id IS NOT NULL))"
+        },
+        {
+          "columnNames": [
+            "customer_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "sale_orders_customer_id_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "sale_orders_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "scheduled_at"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "sale_orders_scheduled_at_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "staff_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "sale_orders_staff_id_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "state"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "sale_orders_state_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "tenant_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "sale_orders_tenant_id_index",
+          "unique": false,
+          "primary": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "sale_orders_total_amount_check",
+          "columnName": "total_amount",
+          "definition": "CHECK ((total_amount >= (0)::numeric))",
+          "expression": "total_amount >= 0"
+        }
+      ],
+      "foreignKeys": {
+        "sale_orders_customer_id_fkey": {
+          "columnNames": [
+            "customer_id"
+          ],
+          "constraintName": "sale_orders_customer_id_fkey",
+          "localTableName": "public.sale_orders",
+          "referencedTableName": "public.users",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "no action"
+        },
+        "sale_orders_service_id_fkey": {
+          "columnNames": [
+            "service_id"
+          ],
+          "constraintName": "sale_orders_service_id_fkey",
+          "localTableName": "public.sale_orders",
+          "referencedTableName": "public.services",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "no action"
+        },
+        "sale_orders_staff_id_fkey": {
+          "columnNames": [
+            "staff_id"
+          ],
+          "constraintName": "sale_orders_staff_id_fkey",
+          "localTableName": "public.sale_orders",
+          "referencedTableName": "public.users",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "set null"
+        }
+      },
+      "nativeEnums": {
+        "account_type": {
+          "name": "account_type",
+          "schema": "public",
+          "items": [
+            "platform",
+            "wlc",
+            "standard"
+          ]
+        },
+        "combo_item_type": {
+          "name": "combo_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product"
+          ]
+        },
+        "combo_status": {
+          "name": "combo_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "archived"
+          ]
+        },
+        "product_status": {
+          "name": "product_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "product_unit": {
+          "name": "product_unit",
+          "schema": "public",
+          "items": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
+          ]
+        },
+        "sale_order_state": {
+          "name": "sale_order_state",
+          "schema": "public",
+          "items": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
           ]
         },
         "service_status": {
@@ -1140,6 +2917,22 @@
             "standard"
           ]
         },
+        "combo_item_type": {
+          "name": "combo_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product"
+          ]
+        },
+        "combo_status": {
+          "name": "combo_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "archived"
+          ]
+        },
         "product_status": {
           "name": "product_status",
           "schema": "public",
@@ -1158,6 +2951,20 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "sale_order_state": {
+          "name": "sale_order_state",
+          "schema": "public",
+          "items": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
           ]
         },
         "service_status": {
@@ -1297,6 +3104,22 @@
           "comment": null,
           "enumItems": [],
           "mappedType": "uuid"
+        },
+        "auto_include": {
+          "name": "auto_include",
+          "type": "bool",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "true",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "boolean"
         }
       },
       "name": "service_dependencies",
@@ -1400,6 +3223,22 @@
             "standard"
           ]
         },
+        "combo_item_type": {
+          "name": "combo_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product"
+          ]
+        },
+        "combo_status": {
+          "name": "combo_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "archived"
+          ]
+        },
         "product_status": {
           "name": "product_status",
           "schema": "public",
@@ -1418,6 +3257,20 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "sale_order_state": {
+          "name": "sale_order_state",
+          "schema": "public",
+          "items": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
           ]
         },
         "service_status": {
@@ -1701,6 +3554,22 @@
             "standard"
           ]
         },
+        "combo_item_type": {
+          "name": "combo_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product"
+          ]
+        },
+        "combo_status": {
+          "name": "combo_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "archived"
+          ]
+        },
         "product_status": {
           "name": "product_status",
           "schema": "public",
@@ -1719,6 +3588,597 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "sale_order_state": {
+          "name": "sale_order_state",
+          "schema": "public",
+          "items": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
+          ]
+        },
+        "service_status": {
+          "name": "service_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "schema": "public",
+          "items": [
+            "free_trial",
+            "paid"
+          ]
+        },
+        "tenant_status": {
+          "name": "tenant_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ]
+        },
+        "user_state": {
+          "name": "user_state",
+          "schema": "public",
+          "items": [
+            "active",
+            "inactive",
+            "suspended"
+          ]
+        }
+      },
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "service_id": {
+          "name": "service_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        }
+      },
+      "name": "staff_qualifications",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "staff_qualifications_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "service_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "staff_qualifications_service_id_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "tenant_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "staff_qualifications_tenant_id_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "user_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "staff_qualifications_user_id_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "user_id",
+            "service_id"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "staff_qualifications_user_service_unique",
+          "unique": true,
+          "primary": false
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {
+        "staff_qualifications_service_id_fkey": {
+          "columnNames": [
+            "service_id"
+          ],
+          "constraintName": "staff_qualifications_service_id_fkey",
+          "localTableName": "public.staff_qualifications",
+          "referencedTableName": "public.services",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        },
+        "staff_qualifications_user_id_fkey": {
+          "columnNames": [
+            "user_id"
+          ],
+          "constraintName": "staff_qualifications_user_id_fkey",
+          "localTableName": "public.staff_qualifications",
+          "referencedTableName": "public.users",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        }
+      },
+      "nativeEnums": {
+        "account_type": {
+          "name": "account_type",
+          "schema": "public",
+          "items": [
+            "platform",
+            "wlc",
+            "standard"
+          ]
+        },
+        "combo_item_type": {
+          "name": "combo_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product"
+          ]
+        },
+        "combo_status": {
+          "name": "combo_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "archived"
+          ]
+        },
+        "product_status": {
+          "name": "product_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "product_unit": {
+          "name": "product_unit",
+          "schema": "public",
+          "items": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
+          ]
+        },
+        "sale_order_state": {
+          "name": "sale_order_state",
+          "schema": "public",
+          "items": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
+          ]
+        },
+        "service_status": {
+          "name": "service_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "schema": "public",
+          "items": [
+            "free_trial",
+            "paid"
+          ]
+        },
+        "tenant_status": {
+          "name": "tenant_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ]
+        },
+        "user_state": {
+          "name": "user_state",
+          "schema": "public",
+          "items": [
+            "active",
+            "inactive",
+            "suspended"
+          ]
+        }
+      },
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "day_of_week": {
+          "name": "day_of_week",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "start_time": {
+          "name": "start_time",
+          "type": "time(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "time"
+        },
+        "end_time": {
+          "name": "end_time",
+          "type": "time(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "time"
+        }
+      },
+      "name": "staff_schedules",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "staff_schedules_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "tenant_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "staff_schedules_tenant_id_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "user_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "staff_schedules_user_id_index",
+          "unique": false,
+          "primary": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "staff_schedules_day_of_week_check",
+          "columnName": "day_of_week",
+          "definition": "CHECK (((day_of_week >= 0) AND (day_of_week <= 6)))",
+          "expression": "(day_of_week >= 0) AND (day_of_week <= 6)"
+        },
+        {
+          "name": "staff_schedules_time_check",
+          "columnName": "end_time",
+          "definition": "CHECK ((start_time < end_time))",
+          "expression": "start_time < end_time"
+        }
+      ],
+      "foreignKeys": {
+        "staff_schedules_user_id_fkey": {
+          "columnNames": [
+            "user_id"
+          ],
+          "constraintName": "staff_schedules_user_id_fkey",
+          "localTableName": "public.staff_schedules",
+          "referencedTableName": "public.users",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        }
+      },
+      "nativeEnums": {
+        "account_type": {
+          "name": "account_type",
+          "schema": "public",
+          "items": [
+            "platform",
+            "wlc",
+            "standard"
+          ]
+        },
+        "combo_item_type": {
+          "name": "combo_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product"
+          ]
+        },
+        "combo_status": {
+          "name": "combo_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "archived"
+          ]
+        },
+        "product_status": {
+          "name": "product_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "product_unit": {
+          "name": "product_unit",
+          "schema": "public",
+          "items": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
+          ]
+        },
+        "sale_order_state": {
+          "name": "sale_order_state",
+          "schema": "public",
+          "items": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
           ]
         },
         "service_status": {
@@ -1896,6 +4356,22 @@
             "standard"
           ]
         },
+        "combo_item_type": {
+          "name": "combo_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product"
+          ]
+        },
+        "combo_status": {
+          "name": "combo_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "archived"
+          ]
+        },
         "product_status": {
           "name": "product_status",
           "schema": "public",
@@ -1914,6 +4390,20 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "sale_order_state": {
+          "name": "sale_order_state",
+          "schema": "public",
+          "items": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
           ]
         },
         "service_status": {
@@ -2133,6 +4623,70 @@
           "comment": null,
           "enumItems": [],
           "mappedType": "datetime"
+        },
+        "slug": {
+          "name": "slug",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": true,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "logo_url": {
+          "name": "logo_url",
+          "type": "varchar(1024)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 1024,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "city": {
+          "name": "city",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "rating": {
+          "name": "rating",
+          "type": "numeric(3,2)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": 3,
+          "scale": 2,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "decimal"
         }
       },
       "name": "tenants",
@@ -2170,6 +4724,17 @@
           "keyName": "tenants_pkey",
           "unique": true,
           "primary": true
+        },
+        {
+          "columnNames": [
+            "slug"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "tenants_slug_unique",
+          "unique": true,
+          "primary": false,
+          "expression": "CREATE UNIQUE INDEX tenants_slug_unique ON public.tenants USING btree (slug) WHERE (slug IS NOT NULL)"
         }
       ],
       "checks": [],
@@ -2182,6 +4747,22 @@
             "platform",
             "wlc",
             "standard"
+          ]
+        },
+        "combo_item_type": {
+          "name": "combo_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product"
+          ]
+        },
+        "combo_status": {
+          "name": "combo_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "archived"
           ]
         },
         "product_status": {
@@ -2202,6 +4783,20 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "sale_order_state": {
+          "name": "sale_order_state",
+          "schema": "public",
+          "items": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
           ]
         },
         "service_status": {
@@ -2333,6 +4928,22 @@
             "standard"
           ]
         },
+        "combo_item_type": {
+          "name": "combo_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product"
+          ]
+        },
+        "combo_status": {
+          "name": "combo_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "archived"
+          ]
+        },
         "product_status": {
           "name": "product_status",
           "schema": "public",
@@ -2351,6 +4962,20 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "sale_order_state": {
+          "name": "sale_order_state",
+          "schema": "public",
+          "items": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
           ]
         },
         "service_status": {
@@ -2598,6 +5223,22 @@
             "standard"
           ]
         },
+        "combo_item_type": {
+          "name": "combo_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product"
+          ]
+        },
+        "combo_status": {
+          "name": "combo_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "archived"
+          ]
+        },
         "product_status": {
           "name": "product_status",
           "schema": "public",
@@ -2616,6 +5257,20 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "sale_order_state": {
+          "name": "sale_order_state",
+          "schema": "public",
+          "items": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
           ]
         },
         "service_status": {
@@ -2669,6 +5324,22 @@
         "standard"
       ]
     },
+    "combo_item_type": {
+      "name": "combo_item_type",
+      "schema": "public",
+      "items": [
+        "service",
+        "product"
+      ]
+    },
+    "combo_status": {
+      "name": "combo_status",
+      "schema": "public",
+      "items": [
+        "active",
+        "archived"
+      ]
+    },
     "product_status": {
       "name": "product_status",
       "schema": "public",
@@ -2687,6 +5358,20 @@
         "unit",
         "kg",
         "l"
+      ]
+    },
+    "sale_order_state": {
+      "name": "sale_order_state",
+      "schema": "public",
+      "items": [
+        "pending_payment",
+        "pending_checkout",
+        "confirmed",
+        "checked_in",
+        "in_progress",
+        "completed",
+        "cancelled",
+        "no_show"
       ]
     },
     "service_status": {

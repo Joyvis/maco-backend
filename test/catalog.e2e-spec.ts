@@ -77,6 +77,8 @@ describe('Catalog (e2e)', () => {
       await em
         .getConnection()
         .execute('DELETE FROM service_consumptions WHERE tenant_id = ?', [tid]);
+      await em.getConnection().execute('DELETE FROM combo_items WHERE tenant_id = ?', [tid]);
+      await em.getConnection().execute('DELETE FROM combos WHERE tenant_id = ?', [tid]);
       await em.getConnection().execute('DELETE FROM services WHERE tenant_id = ?', [tid]);
       await em.getConnection().execute('DELETE FROM products WHERE tenant_id = ?', [tid]);
       await em.getConnection().execute('DELETE FROM categories WHERE tenant_id = ?', [tid]);
@@ -463,9 +465,11 @@ describe('Catalog (e2e)', () => {
       .send({ depends_on_service_id: aId })
       .expect(201);
     const dep = (addRes.body as { data: Record<string, unknown> }).data;
-    expect(dep['service_id']).toBe(bId);
+    expect(dep['service_id']).toBe(aId);
+    expect(dep['service_name']).toBe('Wash');
     expect(dep['depends_on_service_id']).toBe(aId);
     expect(dep['depends_on_service_name']).toBe('Wash');
+    expect(dep['auto_include']).toBe(true);
     const dependencyId = dep['id'] as string;
 
     const listRes = await request(app.getHttpServer())
@@ -648,6 +652,156 @@ describe('Catalog (e2e)', () => {
         items: [{ id: '01960000-0000-7000-8000-0000000000ff', display_order: 0 }],
       })
       .expect(404);
+  });
+
+  // ──────────────────────────────────────────────────────
+  // Combos
+  // ──────────────────────────────────────────────────────
+
+  it('POST /catalog/combos — create then get returns items joined to service', async () => {
+    const svcRes = await request(app.getHttpServer())
+      .post('/catalog/services')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({ name: 'Combo Service', duration_minutes: 30, base_price: 40 })
+      .expect(201);
+    const serviceId = (svcRes.body as { data: { id: string } }).data.id;
+
+    const createRes = await request(app.getHttpServer())
+      .post('/catalog/combos')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({
+        name: 'Spa Day',
+        description: 'Relaxing combo',
+        discount_percentage: 15.5,
+        items: [{ item_type: 'service', item_id: serviceId }],
+      })
+      .expect(201);
+
+    const created = (createRes.body as { data: Record<string, unknown> }).data;
+    expect(created['id']).toEqual(expect.any(String));
+    expect(created['name']).toBe('Spa Day');
+    expect(created['discount_percentage']).toBe(15.5);
+    expect(created['status']).toBe('active');
+    expect(created['item_count']).toBe(1);
+    const items = created['items'] as Array<Record<string, unknown>>;
+    expect(items).toHaveLength(1);
+    expect(items[0]['item_type']).toBe('service');
+    expect(items[0]['item_id']).toBe(serviceId);
+    expect(items[0]['name']).toBe('Combo Service');
+    expect(items[0]['base_price']).toBe(40);
+
+    const comboId = created['id'] as string;
+
+    const getRes = await request(app.getHttpServer())
+      .get(`/catalog/combos/${comboId}`)
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .expect(200);
+    const fetched = (getRes.body as { data: { items: unknown[] } }).data;
+    expect(fetched.items).toHaveLength(1);
+
+    const listRes = await request(app.getHttpServer())
+      .get('/catalog/combos?status=active')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .expect(200);
+    const body = listRes.body as {
+      data: Array<{ id: string; item_count: number; status: string }>;
+      meta: { total: number };
+    };
+    const found = body.data.find((c) => c.id === comboId);
+    expect(found).toBeDefined();
+    expect(found?.item_count).toBe(1);
+    expect(found?.status).toBe('active');
+
+    const archiveRes = await request(app.getHttpServer())
+      .post(`/catalog/combos/${comboId}/archive`)
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .expect(200);
+    expect((archiveRes.body as { data: { status: string } }).data.status).toBe('archived');
+
+    const archivedListRes = await request(app.getHttpServer())
+      .get('/catalog/combos?status=archived')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .expect(200);
+    const archivedBody = archivedListRes.body as { data: Array<{ id: string }> };
+    expect(archivedBody.data.find((c) => c.id === comboId)).toBeDefined();
+  });
+
+  it('POST /catalog/combos — 400 for invalid item id', async () => {
+    await request(app.getHttpServer())
+      .post('/catalog/combos')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({
+        name: 'Bad Combo',
+        discount_percentage: 10,
+        items: [{ item_type: 'service', item_id: '01960000-0000-7000-8000-0000000000aa' }],
+      })
+      .expect(400);
+  });
+
+  it('POST /catalog/combos — 400 for empty items array', async () => {
+    await request(app.getHttpServer())
+      .post('/catalog/combos')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({ name: 'No Items', discount_percentage: 5, items: [] })
+      .expect(400);
+  });
+
+  it('PATCH /catalog/combos/:id — replaces items when items present', async () => {
+    const s1 = await request(app.getHttpServer())
+      .post('/catalog/services')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({ name: 'Svc1', duration_minutes: 15, base_price: 10 })
+      .expect(201);
+    const s2 = await request(app.getHttpServer())
+      .post('/catalog/services')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({ name: 'Svc2', duration_minutes: 20, base_price: 20 })
+      .expect(201);
+    const s1Id = (s1.body as { data: { id: string } }).data.id;
+    const s2Id = (s2.body as { data: { id: string } }).data.id;
+
+    const createRes = await request(app.getHttpServer())
+      .post('/catalog/combos')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({
+        name: 'Replaceable',
+        discount_percentage: 10,
+        items: [{ item_type: 'service', item_id: s1Id }],
+      })
+      .expect(201);
+    const id = (createRes.body as { data: { id: string } }).data.id;
+
+    const patchRes = await request(app.getHttpServer())
+      .patch(`/catalog/combos/${id}`)
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({ items: [{ item_type: 'service', item_id: s2Id }] })
+      .expect(200);
+
+    const data = (patchRes.body as { data: { items: Array<{ item_id: string }> } }).data;
+    expect(data.items).toHaveLength(1);
+    expect(data.items[0].item_id).toBe(s2Id);
+  });
+
+  it('cross-tenant isolation: combo cannot reference tenant B service', async () => {
+    const b = await signUpAndLogin(app, 'Combo Iso B', 'owner@combo-iso-b.com');
+    createdTenantIds.push(b.tenantId);
+
+    const svcB = await request(app.getHttpServer())
+      .post('/catalog/services')
+      .set('Authorization', `Bearer ${b.accessToken}`)
+      .send({ name: 'B Service', duration_minutes: 30, base_price: 10 })
+      .expect(201);
+    const bSvcId = (svcB.body as { data: { id: string } }).data.id;
+
+    await request(app.getHttpServer())
+      .post('/catalog/combos')
+      .set('Authorization', `Bearer ${tenantAToken}`)
+      .send({
+        name: 'Cross-tenant',
+        discount_percentage: 10,
+        items: [{ item_type: 'service', item_id: bSvcId }],
+      })
+      .expect(400);
   });
 
   it('PUT /catalog/categories/reorder — tenant isolation: B cannot reorder A rows', async () => {
