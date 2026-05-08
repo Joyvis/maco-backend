@@ -28,7 +28,11 @@ interface OrderSlotRow {
 export class SchedulingService {
   constructor(private readonly em: EntityManager) {}
 
-  async getQualifiedStaff(tenantId: string, serviceId: string): Promise<QualifiedStaff[]> {
+  async getQualifiedStaff(
+    tenantId: string,
+    serviceId: string,
+    filter?: { date: string; start_time: string },
+  ): Promise<QualifiedStaff[]> {
     const service = await this.em.findOne(
       Service,
       { id: serviceId, tenant_id: tenantId },
@@ -43,7 +47,25 @@ export class SchedulingService {
       { id: { $in: userIds }, tenant_id: tenantId, state: UserState.ACTIVE },
       NO_TENANT_FILTER,
     );
-    return users.map((u) => ({ user_id: u.id, name: u.full_name, email: u.email }));
+
+    let availableUsers = users;
+    if (filter) {
+      const slotStart = new Date(`${filter.date}T${filter.start_time}:00.000Z`);
+      const slotEnd = new Date(slotStart.getTime() + service.duration_minutes * 60_000);
+      const rangeStart = new Date(`${filter.date}T00:00:00.000Z`);
+      const rangeEnd = new Date(rangeStart);
+      rangeEnd.setUTCDate(rangeEnd.getUTCDate() + 1);
+
+      const staffIds = users.map((u) => u.id);
+      const schedules = await this.loadSchedules(tenantId, staffIds);
+      const orders = await this.loadOrderSlots(tenantId, staffIds, rangeStart, rangeEnd);
+
+      availableUsers = users.filter((u) =>
+        isStaffAvailable(u.id, slotStart, slotEnd, schedules, orders),
+      );
+    }
+
+    return availableUsers.map((u) => ({ user_id: u.id, name: u.full_name, email: u.email }));
   }
 
   private async qualifiedStaffIds(tenantId: string, serviceId: string): Promise<string[]> {
