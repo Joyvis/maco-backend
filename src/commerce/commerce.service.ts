@@ -21,7 +21,11 @@ import { RefundPolicy } from './entities/refund-policy.entity';
 import { SaleOrderItem } from './entities/sale-order-item.entity';
 import { ACTIVE_BOOKING_STATES, SaleOrder, SaleOrderState } from './entities/sale-order.entity';
 
-const NO_TENANT_FILTER = { filters: { tenant: false } } as const;
+// MikroORM mutates the options object passed to find/findOne/findAndCount
+// (e.g. it sets `populate`, `loggerContext`, `populateWhere` on it). Returning a
+// fresh literal each call keeps that mutation from leaking across calls — sharing
+// a constant here previously caused `populate: []` to overwrite `populate: ['service', 'staff']`.
+const noTenantFilter = () => ({ filters: { tenant: false } });
 
 @Injectable()
 export class CommerceService {
@@ -42,7 +46,7 @@ export class CommerceService {
     const service = await this.em.findOne(
       Service,
       { id: dto.service_id, tenant_id: tenantId },
-      NO_TENANT_FILTER,
+      noTenantFilter(),
     );
     if (!service) throw new NotFoundException('Service not found');
 
@@ -65,20 +69,20 @@ export class CommerceService {
         const customer = await em.findOne(
           User,
           { id: customerId, tenant_id: tenantId },
-          NO_TENANT_FILTER,
+          noTenantFilter(),
         );
         if (!customer) throw new ForbiddenException('Customer not in tenant');
         const staff = await em.findOne(
           User,
           { id: staffId, tenant_id: tenantId },
-          NO_TENANT_FILTER,
+          noTenantFilter(),
         );
         if (!staff) throw new UnprocessableEntityException('No staff available for this slot');
 
         const dependencies = await em.find(
           ServiceDependency,
           { tenant_id: tenantId, service: service.id, auto_include: true },
-          { populate: ['depends_on_service'], ...NO_TENANT_FILTER },
+          { populate: ['depends_on_service'], ...noTenantFilter() },
         );
 
         const totalAmount = Number(service.base_price);
@@ -160,7 +164,7 @@ export class CommerceService {
       limit: page_size,
       offset: (page - 1) * page_size,
       populate: ['service', 'staff'],
-      ...NO_TENANT_FILTER,
+      ...noTenantFilter(),
     });
 
     return {
@@ -178,7 +182,7 @@ export class CommerceService {
     const order = await this.em.findOne(
       SaleOrder,
       { id: orderId, tenant_id: tenantId },
-      { populate: ['service', 'staff'], ...NO_TENANT_FILTER },
+      { populate: ['service', 'staff'], ...noTenantFilter() },
     );
     if (!order) throw new NotFoundException('Order not found');
     if (order.customer.id !== customerId) {
@@ -212,7 +216,7 @@ export class CommerceService {
     const order = await this.em.findOne(
       SaleOrder,
       { id: orderId, tenant_id: tenantId },
-      { populate: ['service', 'staff'], ...NO_TENANT_FILTER },
+      { populate: ['service', 'staff'], ...noTenantFilter() },
     );
     if (!order) throw new NotFoundException('Order not found');
     if (order.customer.id !== customerId) {
@@ -245,7 +249,7 @@ export class CommerceService {
     const policies = await this.em.find(
       RefundPolicy,
       { tenant_id: tenantId, is_active: true },
-      { orderBy: { refund_percentage: 'desc' }, ...NO_TENANT_FILTER },
+      { orderBy: { refund_percentage: 'desc' }, ...noTenantFilter() },
     );
     return policies.map((p) => ({
       id: p.id,
@@ -267,7 +271,7 @@ export class CommerceService {
       const qual = await em.findOne(
         StaffQualification,
         { tenant_id: tenantId, service: serviceId, user: requestedStaffId },
-        NO_TENANT_FILTER,
+        noTenantFilter(),
       );
       if (!qual) {
         throw new UnprocessableEntityException('Staff is not qualified for this service');
