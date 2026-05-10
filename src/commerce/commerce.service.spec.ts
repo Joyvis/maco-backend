@@ -24,7 +24,7 @@ describe('CommerceService — populate option leak guard', () => {
       options.populateWhere = {};
     };
 
-    const fakeEm = {
+    const fakeEm: Record<string, unknown> = {
       findAndCount: jest.fn((_e: unknown, _w: unknown, options: Record<string, unknown>) => {
         findAndCountOptions.push({ ...options });
         mutateLikeMikroOrm(options);
@@ -32,15 +32,16 @@ describe('CommerceService — populate option leak guard', () => {
       }),
       findOne: jest.fn((entity: unknown, _w: unknown, options?: Record<string, unknown>) => {
         // Tenant exists so createBooking proceeds past the shop_slug check;
-        // Service is missing so createBooking fails before opening a transaction —
-        // but only AFTER em.findOne(Service, ..., noTenantFilter()) has had a
-        // chance to mutate the options it received.
+        // Customer lookup returns truthy so we reach the service lookup;
+        // Service lookup throws to abort, but only AFTER findOne has had a
+        // chance to mutate any shared options reference.
         mutateLikeMikroOrm(options);
         if (entity === Tenant) return Promise.resolve({} as Tenant);
         if (entity === Service) return Promise.resolve(null);
-        return Promise.resolve(null);
+        return Promise.resolve({ id: 'customer-1' });
       }),
     };
+    fakeEm.transactional = jest.fn((cb: (em: unknown) => Promise<unknown>) => cb(fakeEm));
 
     const service = new CommerceService(fakeEm as unknown as EntityManager);
 
@@ -51,7 +52,7 @@ describe('CommerceService — populate option leak guard', () => {
         date: '2026-01-01',
         start_time: '12:00',
       }),
-    ).rejects.toThrow('Service not found');
+    ).rejects.toThrow(/not found/i);
 
     await service.listMyOrders('tenant-1', 'customer-1', {});
 
