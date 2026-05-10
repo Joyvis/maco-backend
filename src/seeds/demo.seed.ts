@@ -5,6 +5,8 @@ import * as bcrypt from 'bcrypt';
 
 import config from '../../mikro-orm.config';
 import { Category } from '../catalog/entities/category.entity';
+import { ComboItem, ComboItemType } from '../catalog/entities/combo-item.entity';
+import { Combo, ComboStatus } from '../catalog/entities/combo.entity';
 import { Product, ProductStatus, ProductUnit } from '../catalog/entities/product.entity';
 import { ServiceDependency } from '../catalog/entities/service-dependency.entity';
 import { Service, ServiceStatus } from '../catalog/entities/service.entity';
@@ -44,6 +46,9 @@ const ID = {
   STAFF_CARLA: '01900000-0000-7000-8000-000000000042',
   CUSTOMER: '01900000-0000-7000-8000-000000000050',
   PRODUCT_SHAMPOO: '01900000-0000-7000-8000-000000000080',
+  COMBO_CORTE_LAVAGEM: '01900000-0000-7000-8000-000000000090',
+  COMBO_ITEM_CORTE: '01900000-0000-7000-8000-000000000091',
+  COMBO_ITEM_LAVAGEM: '01900000-0000-7000-8000-000000000092',
   REFUND_DEFAULT: '01900000-0000-7000-8000-000000000060',
   REFUND_HALF: '01900000-0000-7000-8000-000000000061',
   ORDER_FUTURE: '01900000-0000-7000-8000-000000000070',
@@ -133,23 +138,27 @@ async function ensureBranding(em: EntityManager, tenant: Tenant): Promise<void> 
   if (dirty) await em.flush();
 }
 
-async function ensureRoles(em: EntityManager): Promise<{
+export async function ensureTenantRoles(
+  em: EntityManager,
+  tenantId: string,
+  ids: { owner: string; staff: string; customer: string },
+): Promise<{
   owner: Role;
   staff: Role;
   customer: Role;
 }> {
   const roles: Record<string, Role> = {};
   const want = [
-    { id: ID.ROLE_OWNER, name: 'owner' },
-    { id: ID.ROLE_STAFF, name: 'staff' },
-    { id: ID.ROLE_CUSTOMER, name: 'customer' },
+    { id: ids.owner, name: 'owner' },
+    { id: ids.staff, name: 'staff' },
+    { id: ids.customer, name: 'customer' },
   ];
   for (const r of want) {
-    let role = await em.findOne(Role, { tenant_id: ID.TENANT, name: r.name }, { filters: false });
+    let role = await em.findOne(Role, { tenant_id: tenantId, name: r.name }, { filters: false });
     if (!role) {
       role = em.create(Role, {
         id: r.id,
-        tenant_id: ID.TENANT,
+        tenant_id: tenantId,
         name: r.name,
         is_system: true,
       });
@@ -434,6 +443,60 @@ async function ensureProducts(em: EntityManager): Promise<void> {
   await em.flush();
 }
 
+async function ensureCombos(
+  em: EntityManager,
+  services: Map<string, Service>,
+): Promise<void> {
+  const corte = services.get(ID.SVC_CORTE);
+  const lavagem = services.get(ID.SVC_LAVAGEM);
+  if (!corte || !lavagem) return;
+
+  const existingCombo = await em.findOne(
+    Combo,
+    { id: ID.COMBO_CORTE_LAVAGEM },
+    { filters: false },
+  );
+  let combo: Combo;
+  if (!existingCombo) {
+    combo = em.create(Combo, {
+      id: ID.COMBO_CORTE_LAVAGEM,
+      tenant_id: ID.TENANT,
+      name: 'Corte + Lavagem',
+      description: 'Pacote com Corte Feminino e Lavagem com 15% de desconto.',
+      discount_percentage: '15.00',
+      status: ComboStatus.ACTIVE,
+    });
+    em.persist(combo);
+    await em.flush();
+  } else {
+    combo = existingCombo;
+    combo.name = 'Corte + Lavagem';
+    combo.description = 'Pacote com Corte Feminino e Lavagem com 15% de desconto.';
+    combo.discount_percentage = '15.00';
+    combo.status = ComboStatus.ACTIVE;
+  }
+
+  const desiredItems: Array<{ id: string; service: Service }> = [
+    { id: ID.COMBO_ITEM_CORTE, service: corte },
+    { id: ID.COMBO_ITEM_LAVAGEM, service: lavagem },
+  ];
+  for (const desired of desiredItems) {
+    const existing = await em.findOne(ComboItem, { id: desired.id }, { filters: false });
+    if (!existing) {
+      em.persist(
+        em.create(ComboItem, {
+          id: desired.id,
+          tenant_id: ID.TENANT,
+          combo,
+          item_type: ComboItemType.SERVICE,
+          service: desired.service,
+        }),
+      );
+    }
+  }
+  await em.flush();
+}
+
 async function ensureCustomer(em: EntityManager, customerRole: Role): Promise<User> {
   const email = 'customer@demo.test';
   let user = await em.findOne(User, { id: ID.CUSTOMER }, { filters: false });
@@ -575,24 +638,46 @@ async function ensureSeedOrders(
   await em.flush();
 }
 
+export interface DemoSeedHandles {
+  tenant: Tenant;
+  category: Category;
+  services: Map<string, Service>;
+  staff: Map<string, User>;
+  roles: { owner: Role; staff: Role; customer: Role };
+  customer: User;
+}
+
+export async function runDemoSeed(em: EntityManager): Promise<DemoSeedHandles> {
+  const tenant = await ensureTenant(em);
+  await ensureBranding(em, tenant);
+  const roles = await ensureTenantRoles(em, ID.TENANT, {
+    owner: ID.ROLE_OWNER,
+    staff: ID.ROLE_STAFF,
+    customer: ID.ROLE_CUSTOMER,
+  });
+  const category = await ensureCategory(em);
+  const services = await ensureServices(em, category);
+  await ensureDependencies(em, services);
+  await ensureProducts(em);
+  await ensureCombos(em, services);
+  const staff = await ensureStaff(em, roles.staff, services);
+  await ensureWorkingHours(em, staff);
+  await ensureOwner(em, roles.owner);
+  const customer = await ensureCustomer(em, roles.customer);
+  await ensureRefundPolicies(em);
+  await ensureSeedOrders(em, customer, services, staff);
+
+  return { tenant, category, services, staff, roles, customer };
+}
+
+export const DEMO_SHOP_SLUG = SHOP_SLUG;
+
 async function run(): Promise<void> {
   const orm = await MikroORM.init(config);
   try {
     const em = orm.em.fork();
 
-    const tenant = await ensureTenant(em);
-    await ensureBranding(em, tenant);
-    const roles = await ensureRoles(em);
-    const category = await ensureCategory(em);
-    const services = await ensureServices(em, category);
-    await ensureDependencies(em, services);
-    await ensureProducts(em);
-    const staff = await ensureStaff(em, roles.staff, services);
-    await ensureWorkingHours(em, staff);
-    await ensureOwner(em, roles.owner);
-    const customer = await ensureCustomer(em, roles.customer);
-    await ensureRefundPolicies(em);
-    await ensureSeedOrders(em, customer, services, staff);
+    const { tenant } = await runDemoSeed(em);
 
     console.log('\nDemo seed complete.');
     console.log(`  tenant_id:   ${tenant.id}`);
@@ -606,7 +691,9 @@ async function run(): Promise<void> {
   }
 }
 
-run().catch((err: unknown) => {
-  console.error(err);
-  process.exit(1);
-});
+if (require.main === module) {
+  run().catch((err: unknown) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
