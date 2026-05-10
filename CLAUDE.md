@@ -19,39 +19,44 @@ src/
   app.module.ts          # Root module — imports all 11 feature modules
   shared/                # Global SharedModule (guards, decorators, filters, interceptors)
     cqrs/              # BaseCommand, BaseEvent, BaseCommandHandler, BaseEventHandler
-  tenancy/               # Auth, Users, Roles, Tenants
-  catalog/               # Services, Products, Staff Qualifications
-  commerce/              # Sale Orders, Payments, Checkout
-  scheduling/            # Appointments, Staff Schedules
+  tenancy/               # Auth, Users, Roles, Tenants, Staff Qualifications
+  catalog/               # Categories, Services, Products, Combos, Service Dependencies/Consumptions
+  commerce/              # Sale Orders (cart-style bookings), Refund Policies
+  scheduling/            # Staff Schedules, availability + qualified-staff helpers
   finance/               # Financial Accounts, Transactions, Cash Register
   inventory/             # Stock, Purchase Orders
   pricing/               # Price Rules
   subscription/          # Plans, Subscriptions
   support/               # Tickets
   notification/          # Email, SMS, Push
-  shop/                  # Public Shop Profile (GET /shop/:slug — unauthenticated)
+  shop/                  # Public Shop endpoints (profile, availability, qualified staff — unauthenticated)
   seeds/                 # One-off seed scripts (run via `pnpm seed:*`)
 test/                    # E2E tests
 ```
 
 ## Commands
 
+> Package manager is **pnpm** (see `package.json#packageManager`). Server, migrations,
+> and seeds run **inside the devcontainer**, not on the host.
+
 ```bash
-npm run start:dev       # Start dev server with watch mode
-npm run build           # Compile to dist/
-npm run lint            # ESLint (report violations, fail on warnings)
-npm run lint:fix        # ESLint --fix
-npm run format          # Prettier --write
-npm run format:check    # Prettier --check
-npm run test            # Jest unit tests
-npm run test:e2e        # Jest E2E tests
-npm run test:cov        # Coverage report
-npm run migration:create  # Generate a migration from entity diff
-npm run migration:up      # Apply pending migrations
-npm run migration:down    # Revert last migration
-npm run migration:fresh   # Drop + re-apply all migrations
-pnpm seed:shop            # Idempotently seed the demo Shop Profile (slug, services, staff)
-                          # against the existing local TA tenant. Prints the demo URL.
+pnpm start:dev          # Start dev server with watch mode
+pnpm build              # Compile to dist/
+pnpm lint               # ESLint (report violations, fail on warnings)
+pnpm lint:fix           # ESLint --fix
+pnpm format             # Prettier --write
+pnpm format:check       # Prettier --check
+pnpm test               # Jest unit tests
+pnpm test:e2e           # Jest E2E tests
+pnpm test:cov           # Coverage report
+pnpm migration:create   # Generate a migration from entity diff
+pnpm migration:up       # Apply pending migrations
+pnpm migration:down     # Revert last migration
+pnpm migration:fresh    # Drop + re-apply all migrations
+pnpm seed:shop          # Idempotently seed the demo Shop Profile (slug, services, staff)
+                        # against the existing local TA tenant. Prints the demo URL.
+pnpm seed:demo          # Broader demo seed — owner user, products, address, refund
+                        # policies, and pickup-ready sale orders.
 ```
 
 ## MikroORM
@@ -60,7 +65,7 @@ pnpm seed:shop            # Idempotently seed the demo Shop Profile (slug, servi
 - **Config**: `mikro-orm.config.ts` (root) — consumed by both the NestJS module and the CLI
 - **Entities**: glob `src/**/*.entity.ts`; discovered automatically — no manual registration needed
 - **Base entities**: `src/shared/entities/base.entity.ts` (id/created_at/updated_at) and `tenant-scoped.entity.ts` (+tenant_id + global `tenant` filter)
-- **Migrations**: live in `src/migrations/`; generated via `npm run migration:create`
+- **Migrations**: live in `src/migrations/`; generated via `pnpm migration:create`
 - **Tenant filter**: enabled by default on all `TenantScopedEntity` subclasses. Set params: `em.setFilterParams('tenant', { tenantId })`. Disable per-query: `em.find(Entity, {}, { filters: { tenant: false } })`
 - **RequestContext**: `MikroOrmMiddleware` is applied globally in `AppModule` — Identity Map is scoped per HTTP request
 - **SQLite in tests**: use `@mikro-orm/sqlite` in-memory for integration tests; avoid `defaultRaw: 'now()'` in schema creation because SQLite uses `CURRENT_TIMESTAMP` instead
@@ -80,17 +85,17 @@ pnpm seed:shop            # Idempotently seed the demo Shop Profile (slug, servi
 ## Setup after clone
 
 ```bash
-npm install        # installs deps and runs `husky` via prepare script
+pnpm install       # installs deps and runs `husky` via prepare script
 ```
 
-The `prepare` script runs `husky` automatically on `npm install`, which wires up the
+The `prepare` script runs `husky` automatically on `pnpm install`, which wires up the
 pre-commit hook. The `.husky/pre-commit` file must exist (committed to the repo) for
 the hook to run. To initialize it for the first time:
 
 ```bash
-npx husky init
+pnpm dlx husky init
 # then overwrite .husky/pre-commit with:
-echo "npx lint-staged" > .husky/pre-commit
+echo "pnpm exec lint-staged" > .husky/pre-commit
 ```
 
 The pre-commit hook runs `eslint --fix` + `prettier --write` on staged `.ts` files
@@ -128,7 +133,7 @@ docker run --rm -p 3000:3000 maco-prod
 
 `.devcontainer/` follows the standard devcontainer spec, so it works with VS Code Dev Containers, GitHub Codespaces, and Devpod.
 
-- `devcontainer.json` — `app` service, workspace at `/workspace`, runs `npm install` post-create, forwards `3000` (NestJS) and `5432` (Postgres), preinstalls ESLint/Prettier/Jest/Docker VS Code extensions
+- `devcontainer.json` — `app` service, workspace at `/workspace`, runs `pnpm install` post-create, forwards `3000` (NestJS) and `5432` (Postgres), preinstalls ESLint/Prettier/Jest/Docker VS Code extensions
 - `docker-compose.yml` — two services on a shared `dev` bridge network:
   - `app` — `mcr.microsoft.com/devcontainers/javascript-node:1-20-bookworm`, loads `.env` if present, `node_modules` lives in a named volume to avoid host I/O penalty
   - `db` — `postgres:16-alpine` with creds from env vars (default `maco/maco/maco`) and a healthcheck
@@ -144,7 +149,9 @@ devpod stop maco-backend
 # VS Code: "Dev Containers: Reopen in Container"
 ```
 
-Inside the container, run the standard `npm run start:dev`, `npm test`, etc.
+Inside the container, run the standard `pnpm start:dev`, `pnpm test`, etc. The dev
+server, migrations, and seed scripts must always run inside the devcontainer — never
+on the host.
 
 ## JWT Authentication
 
@@ -186,3 +193,44 @@ Env var: `STRIPE_WEBHOOK_SECRET` — required for Stripe webhook signature verif
 - `CreateUserHandler` generates a random 16-byte temp password (bcrypt-hashed); not returned in response
 - `UserRoleType` enum (`owner`, `ta`, `staff`, `customer`) in `src/tenancy/dto/create-user.dto.ts` — valid values for `initial_roles`; each maps to a Role row by name in the caller's tenant
 - `UsersController` is exported from `src/tenancy/tenancy.controller.ts` alongside `TenancyController`
+
+## Catalog
+
+`src/catalog/` covers the shop's sellable inventory:
+
+- `Category`, `Service`, `Product`, `Combo` (+ `ComboItem`) entities — all `TenantScopedEntity`
+- `ServiceDependency` (prerequisite services) and `ServiceConsumption` (product usage per service)
+- Combos bundle services and/or products at a discounted price; pricing is computed by `combo-pricing.helper.ts` (`computeComboPricing`)
+- `CatalogController` exposes CRUD under `/catalog/{categories,services,products,combos}` plus reorder/dependency/consumption helpers (JWT-protected)
+- Status enums: `ServiceStatus`, `ProductStatus`, `ComboStatus` — `ACTIVE` rows are the ones surfaced to the public Shop
+
+## Commerce — Cart Bookings
+
+`SaleOrder` (`src/commerce/entities/sale-order.entity.ts`) is the unified cart entity for both appointments and pickup orders. Legacy single-service payloads are still accepted but the cart-style payload is the canonical shape.
+
+- **Fulfillment** (`SaleOrderFulfillment`): `appointment` (slot-based, requires `scheduled_start_at` + qualified staff) or `pickup` (product/combo-only, no slot)
+- **States** (`SaleOrderState`): `pending_payment`, `pending_checkout`, `confirmed`, `checked_in`, `in_progress`, `completed`, `cancelled`, `no_show`. `ACTIVE_BOOKING_STATES` excludes the terminal trio
+- **Items**: `SaleOrderItem` rows (`SaleOrderItemType` = `service | product | combo`); combo lines persist a `ComboComponentSnapshot[]` for audit
+- **Endpoints** (JWT-protected, mounted at root):
+  - `POST /sale-orders` — create cart booking (`CreateBookingDto` accepts `items[]` + `fulfillment` + optional `scheduled_start_at`/`shop_slug`)
+  - `GET /sale-orders` — list caller's orders (`customer_id=me` supported)
+  - `POST /sale-orders/:id/cancel`, `POST /sale-orders/:id/reschedule`, `POST /sale-orders/:id/mark-picked-up`
+  - `GET /refund-policies`
+- `RefundPolicy` entity drives cancellation refund math
+
+## Public Shop & Scheduling
+
+The `shop/` module is the unauthenticated, slug-addressed public surface. It composes data from `tenancy`, `catalog`, and `scheduling`. All routes use `@Public()`.
+
+- `GET /shop/:slug` — full profile: tenant info (name, address, logo, rating, lat/long from `Tenant`), active services/products/combos, staff roster with qualifications
+- `GET /shop/:slug/services/:serviceId/availability` — two query modes:
+  - **range mode**: `date_from` (+ optional `date_to`) → slots per day
+  - **single mode**: `anchor_at` + `offset_minutes` → single resolved slot (used when chaining services in a cart)
+- `GET /shop/:slug/services/:serviceId/staff` — staff qualified for a service, optionally filtered by `slot_start_at`
+
+`SchedulingService` exposes the public helpers consumed by the Shop controller:
+- `resolveTenantBySlug(slug)` — slug → tenant lookup (bypasses tenant filter)
+- `getPublicAvailabilityRange(...)`, `getPublicAvailabilitySingleSlot(...)`, `getPublicQualifiedStaff(...)`
+- Authenticated equivalents (`/availability`, `/services/:id/qualified-staff`) live on `SchedulingController`
+
+`Tenant` was extended with public-facing fields: `slug`, `logo_url`, `city`, `state`, `address_line1`, `address_line2`, `postal_code`, `latitude`, `longitude`, `rating`.
