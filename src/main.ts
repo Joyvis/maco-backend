@@ -11,7 +11,10 @@ import { AppModule } from './app.module';
 function assertPaymentProviderEnv(): void {
   const provider = (process.env.PAYMENT_PROVIDER ?? 'mock').toLowerCase();
   const nodeEnv = process.env.NODE_ENV;
-  if (provider === 'mock' && nodeEnv === 'production') {
+  // Escape hatch for e2e/CI runs that use the production Docker target but
+  // still need the mock provider. Real production deploys MUST NOT set this.
+  const allowOverride = process.env.ALLOW_MOCK_IN_PROD_BUILD === 'true';
+  if (provider === 'mock' && nodeEnv === 'production' && !allowOverride) {
     throw new Error('FATAL: PAYMENT_PROVIDER=mock is forbidden in production. Refusing to start.');
   }
 }
