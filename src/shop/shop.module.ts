@@ -1,7 +1,12 @@
 import { Category } from '@catalog/entities/category.entity';
+import { ComboItem } from '@catalog/entities/combo-item.entity';
+import { Combo } from '@catalog/entities/combo.entity';
+import { Product } from '@catalog/entities/product.entity';
 import { Service } from '@catalog/entities/service.entity';
 import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { Module } from '@nestjs/common';
+import { StaffSchedule } from '@scheduling/entities/staff-schedule.entity';
+import { SchedulingModule } from '@scheduling/scheduling.module';
 import { Role } from '@tenancy/entities/role.entity';
 import { StaffQualification } from '@tenancy/entities/staff-qualification.entity';
 import { Tenant } from '@tenancy/entities/tenant.entity';
@@ -21,7 +26,12 @@ import { ShopService } from './shop.service';
       UserRole,
       Role,
       StaffQualification,
+      Combo,
+      ComboItem,
+      Product,
+      StaffSchedule,
     ]),
+    SchedulingModule,
   ],
   controllers: [ShopController],
   providers: [ShopService],

@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { SchedulingService } from '@scheduling/scheduling.service';
 
 import { ShopProfileDto } from './dto/shop-profile.dto';
 import { ShopController } from './shop.controller';
@@ -16,7 +17,10 @@ describe('ShopController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ShopController],
-      providers: [{ provide: ShopService, useValue: { getShopProfile } }],
+      providers: [
+        { provide: ShopService, useValue: { getShopProfile } },
+        { provide: SchedulingService, useValue: {} },
+      ],
     }).compile();
 
     controller = module.get<ShopController>(ShopController);
@@ -38,6 +42,8 @@ describe('ShopController', () => {
         },
       ],
       staff: [{ user_id: 'u1', name: 'Maria', qualified_services: [] }],
+      combos: [],
+      products: [],
     };
     getShopProfile.mockResolvedValue(profile);
 
