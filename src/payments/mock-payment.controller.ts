@@ -50,7 +50,9 @@ export class MockPaymentController {
 
   /**
    * Test-only hook for forcing the expiration cron to run synchronously.
-   * Gated by NODE_ENV=test — used by Playwright e2e to avoid waiting a minute.
+   * Gated by NODE_ENV=test — used by Playwright e2e to avoid waiting a minute
+   * AND to force-expire payments whose `expires_at` is still in the future
+   * (which is the normal case for a freshly-created order).
    */
   @Public()
   @Post('payments/_test/run-expiration')
@@ -59,7 +61,7 @@ export class MockPaymentController {
     if (process.env.NODE_ENV !== 'test') {
       throw new ForbiddenException('Test-only endpoint');
     }
-    const expired = await this.paymentsService.expirePending();
+    const expired = await this.paymentsService.expirePending(new Date(), { force: true });
     return { expired };
   }
 }

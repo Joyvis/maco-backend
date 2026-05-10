@@ -117,13 +117,14 @@ export class PaymentsService {
   }
 
   /** Cron-driven expiration. Returns the number of payments transitioned. */
-  async expirePending(now: Date = new Date()): Promise<number> {
+  async expirePending(now: Date = new Date(), options: { force?: boolean } = {}): Promise<number> {
     return this.em.transactional(async (em) => {
-      const payments = await em.find(
-        Payment,
-        { state: PaymentState.PENDING, expires_at: { $lt: now } },
-        { populate: ['sale_order'], ...noTenantFilter() },
-      );
+      const where: Record<string, unknown> = { state: PaymentState.PENDING };
+      if (!options.force) where.expires_at = { $lt: now };
+      const payments = await em.find(Payment, where, {
+        populate: ['sale_order'],
+        ...noTenantFilter(),
+      });
       for (const p of payments) {
         p.state = PaymentState.EXPIRED;
         const order = p.sale_order;
