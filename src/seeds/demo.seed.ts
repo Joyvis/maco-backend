@@ -5,11 +5,16 @@ import * as bcrypt from 'bcrypt';
 
 import config from '../../mikro-orm.config';
 import { Category } from '../catalog/entities/category.entity';
+import { Product, ProductStatus, ProductUnit } from '../catalog/entities/product.entity';
 import { ServiceDependency } from '../catalog/entities/service-dependency.entity';
 import { Service, ServiceStatus } from '../catalog/entities/service.entity';
 import { RefundPolicy } from '../commerce/entities/refund-policy.entity';
-import { SaleOrderItem } from '../commerce/entities/sale-order-item.entity';
-import { SaleOrder, SaleOrderState } from '../commerce/entities/sale-order.entity';
+import { SaleOrderItem, SaleOrderItemType } from '../commerce/entities/sale-order-item.entity';
+import {
+  SaleOrder,
+  SaleOrderFulfillment,
+  SaleOrderState,
+} from '../commerce/entities/sale-order.entity';
 import { StaffSchedule } from '../scheduling/entities/staff-schedule.entity';
 import { Role } from '../tenancy/entities/role.entity';
 import { StaffQualification } from '../tenancy/entities/staff-qualification.entity';
@@ -33,10 +38,12 @@ const ID = {
   ROLE_OWNER: '01900000-0000-7000-8000-000000000030',
   ROLE_STAFF: '01900000-0000-7000-8000-000000000031',
   ROLE_CUSTOMER: '01900000-0000-7000-8000-000000000032',
+  OWNER: '01900000-0000-7000-8000-000000000033',
   STAFF_ANA: '01900000-0000-7000-8000-000000000040',
   STAFF_BRUNO: '01900000-0000-7000-8000-000000000041',
   STAFF_CARLA: '01900000-0000-7000-8000-000000000042',
   CUSTOMER: '01900000-0000-7000-8000-000000000050',
+  PRODUCT_SHAMPOO: '01900000-0000-7000-8000-000000000080',
   REFUND_DEFAULT: '01900000-0000-7000-8000-000000000060',
   REFUND_HALF: '01900000-0000-7000-8000-000000000061',
   ORDER_FUTURE: '01900000-0000-7000-8000-000000000070',
@@ -45,6 +52,15 @@ const ID = {
 };
 
 const SHOP_SLUG = 'salao-demo';
+
+const SHOP_ADDRESS = {
+  line1: 'Av. Paulista, 1000',
+  city: 'São Paulo',
+  state: 'SP',
+  postal_code: '01310-100',
+  latitude: '-23.561300',
+  longitude: '-46.656500',
+};
 
 async function ensureTenant(em: EntityManager): Promise<Tenant> {
   let tenant = await em.findOne(Tenant, { id: ID.TENANT }, { filters: false });
@@ -59,8 +75,13 @@ async function ensureTenant(em: EntityManager): Promise<Tenant> {
     subscription_type: SubscriptionType.FREE_TRIAL,
     slug: SHOP_SLUG,
     logo_url: 'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=400&h=400&fit=crop',
-    city: 'São Paulo',
+    city: SHOP_ADDRESS.city,
     rating: '4.80',
+    address_line1: SHOP_ADDRESS.line1,
+    state: SHOP_ADDRESS.state,
+    postal_code: SHOP_ADDRESS.postal_code,
+    latitude: SHOP_ADDRESS.latitude,
+    longitude: SHOP_ADDRESS.longitude,
   });
   await em.persistAndFlush(tenant);
   return tenant;
@@ -72,8 +93,8 @@ async function ensureBranding(em: EntityManager, tenant: Tenant): Promise<void> 
     tenant.slug = SHOP_SLUG;
     dirty = true;
   }
-  if (!tenant.city) {
-    tenant.city = 'São Paulo';
+  if (tenant.city !== SHOP_ADDRESS.city) {
+    tenant.city = SHOP_ADDRESS.city;
     dirty = true;
   }
   if (!tenant.logo_url) {
@@ -87,6 +108,26 @@ async function ensureBranding(em: EntityManager, tenant: Tenant): Promise<void> 
   }
   if (tenant.status !== TenantStatus.ACTIVE) {
     tenant.status = TenantStatus.ACTIVE;
+    dirty = true;
+  }
+  if (tenant.address_line1 !== SHOP_ADDRESS.line1) {
+    tenant.address_line1 = SHOP_ADDRESS.line1;
+    dirty = true;
+  }
+  if (tenant.state !== SHOP_ADDRESS.state) {
+    tenant.state = SHOP_ADDRESS.state;
+    dirty = true;
+  }
+  if (tenant.postal_code !== SHOP_ADDRESS.postal_code) {
+    tenant.postal_code = SHOP_ADDRESS.postal_code;
+    dirty = true;
+  }
+  if (tenant.latitude !== SHOP_ADDRESS.latitude) {
+    tenant.latitude = SHOP_ADDRESS.latitude;
+    dirty = true;
+  }
+  if (tenant.longitude !== SHOP_ADDRESS.longitude) {
+    tenant.longitude = SHOP_ADDRESS.longitude;
     dirty = true;
   }
   if (dirty) await em.flush();
@@ -145,7 +186,7 @@ const SERVICES: SeedService[] = [
   { id: ID.SVC_CORTE, name: 'Corte Feminino', duration_minutes: 60, base_price: '80.00' },
   { id: ID.SVC_ESCOVA, name: 'Escova', duration_minutes: 45, base_price: '50.00' },
   { id: ID.SVC_COLORACAO, name: 'Coloração', duration_minutes: 120, base_price: '200.00' },
-  { id: ID.SVC_LAVAGEM, name: 'Lavagem', duration_minutes: 15, base_price: '0.00' },
+  { id: ID.SVC_LAVAGEM, name: 'Lavagem', duration_minutes: 15, base_price: '30.00' },
 ];
 
 async function ensureServices(
@@ -166,8 +207,11 @@ async function ensureServices(
         status: ServiceStatus.ACTIVE,
       });
       em.persist(svc);
-    } else if (svc.status !== ServiceStatus.ACTIVE) {
-      svc.status = ServiceStatus.ACTIVE;
+    } else {
+      svc.name = s.name;
+      svc.duration_minutes = s.duration_minutes;
+      svc.base_price = s.base_price;
+      if (svc.status !== ServiceStatus.ACTIVE) svc.status = ServiceStatus.ACTIVE;
     }
     map.set(s.id, svc);
   }
@@ -321,6 +365,75 @@ async function ensureWorkingHours(em: EntityManager, staff: Map<string, User>): 
   await em.flush();
 }
 
+async function ensureOwner(em: EntityManager, ownerRole: Role): Promise<User> {
+  const email = 'owner@salao-demo.test';
+  let user = await em.findOne(User, { id: ID.OWNER }, { filters: false });
+  if (!user) {
+    user = await em.findOne(User, { tenant_id: ID.TENANT, email }, { filters: false });
+  }
+  if (!user) {
+    const passwordHash = await bcrypt.hash('demo1234', 10);
+    user = em.create(User, {
+      id: ID.OWNER,
+      tenant_id: ID.TENANT,
+      email,
+      password_hash: passwordHash,
+      full_name: 'Owner Demo',
+      state: UserState.ACTIVE,
+    });
+    await em.persistAndFlush(user);
+  }
+  const link = await em.findOne(
+    UserRole,
+    { user: user.id, role: ownerRole.id },
+    { filters: false },
+  );
+  if (!link) {
+    em.persist(em.create(UserRole, { user, role: ownerRole }));
+    await em.flush();
+  }
+  return user;
+}
+
+interface SeedProduct {
+  id: string;
+  name: string;
+  description: string;
+  unit: ProductUnit;
+  base_price: string;
+}
+
+const PRODUCTS: SeedProduct[] = [
+  {
+    id: ID.PRODUCT_SHAMPOO,
+    name: 'Shampoo Premium',
+    description: 'Shampoo profissional para cabelos tratados.',
+    unit: ProductUnit.UNIT,
+    base_price: '45.00',
+  },
+];
+
+async function ensureProducts(em: EntityManager): Promise<void> {
+  for (const p of PRODUCTS) {
+    let product = await em.findOne(Product, { id: p.id }, { filters: false });
+    if (!product) {
+      product = em.create(Product, {
+        id: p.id,
+        tenant_id: ID.TENANT,
+        name: p.name,
+        description: p.description,
+        unit: p.unit,
+        base_price: p.base_price,
+        status: ProductStatus.ACTIVE,
+      });
+      em.persist(product);
+    } else if (product.status !== ProductStatus.ACTIVE) {
+      product.status = ProductStatus.ACTIVE;
+    }
+  }
+  await em.flush();
+}
+
 async function ensureCustomer(em: EntityManager, customerRole: Role): Promise<User> {
   const email = 'customer@demo.test';
   let user = await em.findOne(User, { id: ID.CUSTOMER }, { filters: false });
@@ -434,6 +547,7 @@ async function ensureSeedOrders(
       service: s.service,
       staff: s.staff,
       state: s.state,
+      fulfillment: SaleOrderFulfillment.APPOINTMENT,
       scheduled_at: s.start,
       scheduled_end_at: end,
       total_amount: total.toFixed(2),
@@ -446,9 +560,15 @@ async function ensureSeedOrders(
       em.create(SaleOrderItem, {
         tenant_id: ID.TENANT,
         sale_order: order,
+        catalog_item_type: SaleOrderItemType.SERVICE,
+        catalog_item_id: s.service.id,
         service: s.service,
+        quantity: 1,
         price: total.toFixed(2),
         is_dependency: false,
+        slot_start_at: s.start,
+        slot_end_at: end,
+        assigned_staff: s.staff,
       }),
     );
   }
@@ -466,8 +586,10 @@ async function run(): Promise<void> {
     const category = await ensureCategory(em);
     const services = await ensureServices(em, category);
     await ensureDependencies(em, services);
+    await ensureProducts(em);
     const staff = await ensureStaff(em, roles.staff, services);
     await ensureWorkingHours(em, staff);
+    await ensureOwner(em, roles.owner);
     const customer = await ensureCustomer(em, roles.customer);
     await ensureRefundPolicies(em);
     await ensureSeedOrders(em, customer, services, staff);
@@ -475,6 +597,7 @@ async function run(): Promise<void> {
     console.log('\nDemo seed complete.');
     console.log(`  tenant_id:   ${tenant.id}`);
     console.log(`  shop slug:   ${SHOP_SLUG}`);
+    console.log(`  owner:       owner@salao-demo.test / demo1234`);
     console.log(`  customer:    customer@demo.test / demo1234`);
     console.log(`\nOpen in browser:`);
     console.log(`  http://localhost:3000/shop/${SHOP_SLUG}\n`);
