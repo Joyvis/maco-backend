@@ -28,6 +28,7 @@
       "@subscription/*": ["src/subscription/*"],
       "@support/*": ["src/support/*"],
       "@notification/*": ["src/notification/*"],
+      "@payments/*": ["src/payments/*"],
       "@shared/*": ["src/shared/*"]
     }
   }

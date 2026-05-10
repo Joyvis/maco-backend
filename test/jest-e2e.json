@@ -17,6 +17,7 @@
     "^@subscription/(.*)$": "<rootDir>/../src/subscription/$1",
     "^@support/(.*)$": "<rootDir>/../src/support/$1",
     "^@notification/(.*)$": "<rootDir>/../src/notification/$1",
+    "^@payments/(.*)$": "<rootDir>/../src/payments/$1",
     "^@shared/(.*)$": "<rootDir>/../src/shared/$1"
   }
 }
