@@ -24,6 +24,19 @@ interface OrderSlotRow {
   scheduled_end_at: Date;
 }
 
+export interface PublicAvailabilityRangeSlot {
+  date: string;
+  start_time: string;
+  end_time: string;
+  available: boolean;
+}
+
+export interface PublicAvailabilitySingleSlot {
+  datetime: string;
+  available: boolean;
+  eligible_staff_ids: string[];
+}
+
 @Injectable()
 export class SchedulingService {
   constructor(private readonly em: EntityManager) {}
@@ -66,6 +79,90 @@ export class SchedulingService {
     }
 
     return availableUsers.map((u) => ({ user_id: u.id, name: u.full_name, email: u.email }));
+  }
+
+  async resolveTenantBySlug(slug: string): Promise<Tenant> {
+    const tenant = await this.em.findOne(Tenant, { slug }, { filters: false });
+    if (!tenant) throw new NotFoundException('Shop not found');
+    return tenant;
+  }
+
+  async getPublicAvailabilityRange(
+    tenantId: string,
+    serviceId: string,
+    dateFrom: string,
+    dateTo?: string,
+  ): Promise<PublicAvailabilityRangeSlot[]> {
+    const slots = await this.computeBookingSlots(tenantId, {
+      service_id: serviceId,
+      date: dateFrom,
+      end_date: dateTo,
+    });
+    return slots;
+  }
+
+  async getPublicAvailabilitySingleSlot(
+    tenantId: string,
+    serviceId: string,
+    anchorAt: string,
+    offsetMinutes: number,
+  ): Promise<PublicAvailabilitySingleSlot> {
+    const service = await this.em.findOne(
+      Service,
+      { id: serviceId, tenant_id: tenantId },
+      NO_TENANT_FILTER,
+    );
+    if (!service) throw new NotFoundException('Service not found');
+
+    const anchor = new Date(anchorAt);
+    if (Number.isNaN(anchor.getTime())) {
+      throw new BadRequestException('Invalid anchor_at');
+    }
+    if (!Number.isFinite(offsetMinutes) || offsetMinutes < 0) {
+      throw new BadRequestException('offset_minutes must be >= 0');
+    }
+    const slotStart = new Date(anchor.getTime() + offsetMinutes * 60_000);
+    const slotEnd = new Date(slotStart.getTime() + service.duration_minutes * 60_000);
+
+    const userIds = await this.qualifiedStaffIds(tenantId, serviceId);
+    if (userIds.length === 0) {
+      return { datetime: slotStart.toISOString(), available: false, eligible_staff_ids: [] };
+    }
+    const users = await this.em.find(
+      User,
+      { id: { $in: userIds }, tenant_id: tenantId, state: UserState.ACTIVE },
+      NO_TENANT_FILTER,
+    );
+    const staffIds = users.map((u) => u.id);
+    const schedules = await this.loadSchedules(tenantId, staffIds);
+    const dayStart = new Date(slotStart);
+    dayStart.setUTCHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+    const orders = await this.loadOrderSlots(tenantId, staffIds, dayStart, dayEnd);
+    const eligible = staffIds.filter((sid) =>
+      isStaffAvailable(sid, slotStart, slotEnd, schedules, orders),
+    );
+    return {
+      datetime: slotStart.toISOString(),
+      available: eligible.length > 0,
+      eligible_staff_ids: eligible,
+    };
+  }
+
+  async getPublicQualifiedStaff(
+    tenantId: string,
+    serviceId: string,
+    slotStartAt?: string,
+  ): Promise<QualifiedStaff[]> {
+    if (!slotStartAt) return this.getQualifiedStaff(tenantId, serviceId);
+    const slot = new Date(slotStartAt);
+    if (Number.isNaN(slot.getTime())) {
+      throw new BadRequestException('Invalid slot_start_at');
+    }
+    const date = formatDate(slot);
+    const start_time = formatTime(slot);
+    return this.getQualifiedStaff(tenantId, serviceId, { date, start_time });
   }
 
   private async qualifiedStaffIds(tenantId: string, serviceId: string): Promise<string[]> {
@@ -177,6 +274,7 @@ export class SchedulingService {
       { populate: ['service', 'staff'], ...NO_TENANT_FILTER },
     );
     if (!order) throw new NotFoundException('Order not found');
+    if (!order.service) throw new BadRequestException('Order has no primary service');
 
     const day = parseDate(query.date);
     const dow = day.getUTCDay();
