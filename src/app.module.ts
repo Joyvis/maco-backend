@@ -1,6 +1,7 @@
 import { MikroOrmModule, MikroOrmMiddleware } from '@mikro-orm/nestjs';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
+import { ScheduleModule } from '@nestjs/schedule';
 
 import mikroOrmConfig from '../mikro-orm.config';
 
@@ -11,6 +12,7 @@ import { CommerceModule } from './commerce/commerce.module';
 import { FinanceModule } from './finance/finance.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { NotificationModule } from './notification/notification.module';
+import { PaymentsModule } from './payments/payments.module';
 import { PricingModule } from './pricing/pricing.module';
 import { SchedulingModule } from './scheduling/scheduling.module';
 import { SharedModule } from './shared/shared.module';
@@ -23,6 +25,7 @@ import { TenancyModule } from './tenancy/tenancy.module';
   imports: [
     MikroOrmModule.forRoot(mikroOrmConfig),
     CqrsModule.forRoot(),
+    ScheduleModule.forRoot(),
     SharedModule,
     TenancyModule,
     CatalogModule,
@@ -35,6 +38,7 @@ import { TenancyModule } from './tenancy/tenancy.module';
     SupportModule,
     NotificationModule,
     ShopModule,
+    PaymentsModule.register(),
   ],
   controllers: [AppController],
   providers: [AppService],
