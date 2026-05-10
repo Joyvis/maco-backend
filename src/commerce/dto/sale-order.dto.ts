@@ -1,10 +1,12 @@
 export interface SaleOrderResponseDto {
   id: string;
   state: string;
-  scheduled_at: string;
-  service_name: string;
+  fulfillment: 'appointment' | 'pickup';
+  scheduled_at?: string;
+  service_name?: string;
   professional_name?: string;
   total_amount: number;
+  picked_up_at?: string;
   created_at: string;
 }
 

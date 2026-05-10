@@ -54,4 +54,22 @@ export class Tenant extends BaseEntity {
 
   @Property({ type: 'decimal', precision: 3, scale: 2, nullable: true })
   rating?: string;
+
+  @Property({ type: 'varchar', length: 255, nullable: true })
+  address_line1?: string;
+
+  @Property({ type: 'varchar', length: 255, nullable: true })
+  address_line2?: string;
+
+  @Property({ type: 'varchar', length: 255, nullable: true })
+  state?: string;
+
+  @Property({ type: 'varchar', length: 32, nullable: true })
+  postal_code?: string;
+
+  @Property({ type: 'decimal', precision: 9, scale: 6, nullable: true })
+  latitude?: string;
+
+  @Property({ type: 'decimal', precision: 9, scale: 6, nullable: true })
+  longitude?: string;
 }

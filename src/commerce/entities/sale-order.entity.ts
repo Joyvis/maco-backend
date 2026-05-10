@@ -16,6 +16,11 @@ export enum SaleOrderState {
   NO_SHOW = 'no_show',
 }
 
+export enum SaleOrderFulfillment {
+  APPOINTMENT = 'appointment',
+  PICKUP = 'pickup',
+}
+
 export const ACTIVE_BOOKING_STATES = [
   SaleOrderState.PENDING_PAYMENT,
   SaleOrderState.PENDING_CHECKOUT,
@@ -29,8 +34,8 @@ export class SaleOrder extends TenantScopedEntity {
   @ManyToOne(() => User, { fieldName: 'customer_id' })
   customer!: User;
 
-  @ManyToOne(() => Service, { fieldName: 'service_id' })
-  service!: Service;
+  @ManyToOne(() => Service, { fieldName: 'service_id', nullable: true })
+  service?: Service;
 
   @ManyToOne(() => User, { fieldName: 'staff_id', nullable: true })
   staff?: User;
@@ -38,11 +43,14 @@ export class SaleOrder extends TenantScopedEntity {
   @Enum({ items: () => SaleOrderState })
   state!: SaleOrderState;
 
-  @Property({ type: 'timestamptz' })
-  scheduled_at!: Date;
+  @Enum({ items: () => SaleOrderFulfillment })
+  fulfillment!: SaleOrderFulfillment;
 
-  @Property({ type: 'timestamptz' })
-  scheduled_end_at!: Date;
+  @Property({ type: 'timestamptz', nullable: true })
+  scheduled_at?: Date;
+
+  @Property({ type: 'timestamptz', nullable: true })
+  scheduled_end_at?: Date;
 
   @Property({ type: 'decimal', precision: 12, scale: 2 })
   total_amount!: string;
@@ -58,6 +66,9 @@ export class SaleOrder extends TenantScopedEntity {
 
   @Property({ type: 'timestamptz', nullable: true })
   cancelled_at?: Date;
+
+  @Property({ type: 'timestamptz', nullable: true })
+  picked_up_at?: Date;
 
   @OneToMany(() => SaleOrderItem, (i) => i.sale_order)
   items = new Collection<SaleOrderItem>(this);

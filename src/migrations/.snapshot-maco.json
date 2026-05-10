@@ -175,6 +175,23 @@
             "l"
           ]
         },
+        "sale_order_fulfillment": {
+          "name": "sale_order_fulfillment",
+          "schema": "public",
+          "items": [
+            "appointment",
+            "pickup"
+          ]
+        },
+        "sale_order_item_type": {
+          "name": "sale_order_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product",
+            "combo"
+          ]
+        },
         "sale_order_state": {
           "name": "sale_order_state",
           "schema": "public",
@@ -537,6 +554,23 @@
             "l"
           ]
         },
+        "sale_order_fulfillment": {
+          "name": "sale_order_fulfillment",
+          "schema": "public",
+          "items": [
+            "appointment",
+            "pickup"
+          ]
+        },
+        "sale_order_item_type": {
+          "name": "sale_order_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product",
+            "combo"
+          ]
+        },
         "sale_order_state": {
           "name": "sale_order_state",
           "schema": "public",
@@ -803,6 +837,23 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "sale_order_fulfillment": {
+          "name": "sale_order_fulfillment",
+          "schema": "public",
+          "items": [
+            "appointment",
+            "pickup"
+          ]
+        },
+        "sale_order_item_type": {
+          "name": "sale_order_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product",
+            "combo"
           ]
         },
         "sale_order_state": {
@@ -1130,6 +1181,23 @@
             "l"
           ]
         },
+        "sale_order_fulfillment": {
+          "name": "sale_order_fulfillment",
+          "schema": "public",
+          "items": [
+            "appointment",
+            "pickup"
+          ]
+        },
+        "sale_order_item_type": {
+          "name": "sale_order_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product",
+            "combo"
+          ]
+        },
         "sale_order_state": {
           "name": "sale_order_state",
           "schema": "public",
@@ -1395,6 +1463,23 @@
             "l"
           ]
         },
+        "sale_order_fulfillment": {
+          "name": "sale_order_fulfillment",
+          "schema": "public",
+          "items": [
+            "appointment",
+            "pickup"
+          ]
+        },
+        "sale_order_item_type": {
+          "name": "sale_order_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product",
+            "combo"
+          ]
+        },
         "sale_order_state": {
           "name": "sale_order_state",
           "schema": "public",
@@ -1643,6 +1728,23 @@
             "l"
           ]
         },
+        "sale_order_fulfillment": {
+          "name": "sale_order_fulfillment",
+          "schema": "public",
+          "items": [
+            "appointment",
+            "pickup"
+          ]
+        },
+        "sale_order_item_type": {
+          "name": "sale_order_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product",
+            "combo"
+          ]
+        },
         "sale_order_state": {
           "name": "sale_order_state",
           "schema": "public",
@@ -1868,6 +1970,23 @@
             "l"
           ]
         },
+        "sale_order_fulfillment": {
+          "name": "sale_order_fulfillment",
+          "schema": "public",
+          "items": [
+            "appointment",
+            "pickup"
+          ]
+        },
+        "sale_order_item_type": {
+          "name": "sale_order_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product",
+            "combo"
+          ]
+        },
         "sale_order_state": {
           "name": "sale_order_state",
           "schema": "public",
@@ -2010,7 +2129,7 @@
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": false,
+          "nullable": true,
           "unique": false,
           "length": null,
           "precision": null,
@@ -2051,11 +2170,180 @@
           "comment": null,
           "enumItems": [],
           "mappedType": "boolean"
+        },
+        "catalog_item_type": {
+          "name": "catalog_item_type",
+          "type": "sale_order_item_type",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [
+            "service",
+            "product",
+            "combo"
+          ],
+          "mappedType": "unknown",
+          "nativeEnumName": "sale_order_item_type"
+        },
+        "catalog_item_id": {
+          "name": "catalog_item_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "product_id": {
+          "name": "product_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "combo_id": {
+          "name": "combo_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "assigned_staff_id": {
+          "name": "assigned_staff_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "slot_start_at": {
+          "name": "slot_start_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "slot_end_at": {
+          "name": "slot_end_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": "1",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "combo_components": {
+          "name": "combo_components",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "json"
         }
       },
       "name": "sale_order_items",
       "schema": "public",
       "indexes": [
+        {
+          "columnNames": [
+            "assigned_staff_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "sale_order_items_assigned_staff_id_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "catalog_item_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "sale_order_items_catalog_item_id_index",
+          "unique": false,
+          "primary": false
+        },
         {
           "columnNames": [
             "id"
@@ -2078,6 +2366,16 @@
         },
         {
           "columnNames": [
+            "slot_start_at"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "sale_order_items_slot_start_at_index",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
             "tenant_id"
           ],
           "composite": false,
@@ -2093,9 +2391,54 @@
           "columnName": "price",
           "definition": "CHECK ((price >= (0)::numeric))",
           "expression": "price >= 0"
+        },
+        {
+          "name": "sale_order_items_quantity_check",
+          "columnName": "quantity",
+          "definition": "CHECK ((quantity >= 1))",
+          "expression": "quantity >= 1"
         }
       ],
       "foreignKeys": {
+        "sale_order_items_assigned_staff_id_fkey": {
+          "columnNames": [
+            "assigned_staff_id"
+          ],
+          "constraintName": "sale_order_items_assigned_staff_id_fkey",
+          "localTableName": "public.sale_order_items",
+          "referencedTableName": "public.users",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "set null"
+        },
+        "sale_order_items_combo_id_fkey": {
+          "columnNames": [
+            "combo_id"
+          ],
+          "constraintName": "sale_order_items_combo_id_fkey",
+          "localTableName": "public.sale_order_items",
+          "referencedTableName": "public.combos",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "no action"
+        },
+        "sale_order_items_product_id_fkey": {
+          "columnNames": [
+            "product_id"
+          ],
+          "constraintName": "sale_order_items_product_id_fkey",
+          "localTableName": "public.sale_order_items",
+          "referencedTableName": "public.products",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "no action"
+        },
         "sale_order_items_sale_order_id_fkey": {
           "columnNames": [
             "sale_order_id"
@@ -2167,6 +2510,23 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "sale_order_fulfillment": {
+          "name": "sale_order_fulfillment",
+          "schema": "public",
+          "items": [
+            "appointment",
+            "pickup"
+          ]
+        },
+        "sale_order_item_type": {
+          "name": "sale_order_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product",
+            "combo"
           ]
         },
         "sale_order_state": {
@@ -2311,7 +2671,7 @@
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": false,
+          "nullable": true,
           "unique": false,
           "length": null,
           "precision": null,
@@ -2328,7 +2688,7 @@
           "autoincrement": false,
           "primary": false,
           "nullable": true,
-          "unique": true,
+          "unique": false,
           "length": null,
           "precision": null,
           "scale": null,
@@ -2369,7 +2729,7 @@
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": false,
+          "nullable": true,
           "unique": false,
           "length": 6,
           "precision": null,
@@ -2385,7 +2745,7 @@
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": false,
+          "nullable": true,
           "unique": false,
           "length": 6,
           "precision": null,
@@ -2474,23 +2834,47 @@
           "comment": null,
           "enumItems": [],
           "mappedType": "datetime"
+        },
+        "fulfillment": {
+          "name": "fulfillment",
+          "type": "sale_order_fulfillment",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [
+            "appointment",
+            "pickup"
+          ],
+          "mappedType": "unknown",
+          "nativeEnumName": "sale_order_fulfillment"
+        },
+        "picked_up_at": {
+          "name": "picked_up_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
         }
       },
       "name": "sale_orders",
       "schema": "public",
       "indexes": [
-        {
-          "columnNames": [
-            "staff_id",
-            "scheduled_at"
-          ],
-          "composite": true,
-          "constraint": false,
-          "keyName": "sale_orders_active_slot_unique",
-          "unique": true,
-          "primary": false,
-          "expression": "CREATE UNIQUE INDEX sale_orders_active_slot_unique ON public.sale_orders USING btree (staff_id, scheduled_at) WHERE ((state = ANY (ARRAY['pending_payment'::sale_order_state, 'pending_checkout'::sale_order_state, 'confirmed'::sale_order_state, 'checked_in'::sale_order_state, 'in_progress'::sale_order_state])) AND (staff_id IS NOT NULL))"
-        },
         {
           "columnNames": [
             "customer_id"
@@ -2645,6 +3029,23 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "sale_order_fulfillment": {
+          "name": "sale_order_fulfillment",
+          "schema": "public",
+          "items": [
+            "appointment",
+            "pickup"
+          ]
+        },
+        "sale_order_item_type": {
+          "name": "sale_order_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product",
+            "combo"
           ]
         },
         "sale_order_state": {
@@ -2953,6 +3354,23 @@
             "l"
           ]
         },
+        "sale_order_fulfillment": {
+          "name": "sale_order_fulfillment",
+          "schema": "public",
+          "items": [
+            "appointment",
+            "pickup"
+          ]
+        },
+        "sale_order_item_type": {
+          "name": "sale_order_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product",
+            "combo"
+          ]
+        },
         "sale_order_state": {
           "name": "sale_order_state",
           "schema": "public",
@@ -3180,7 +3598,7 @@
       "checks": [
         {
           "name": "service_dependencies_no_self_check",
-          "columnName": "service_id",
+          "columnName": "depends_on_service_id",
           "definition": "CHECK ((service_id <> depends_on_service_id))",
           "expression": "service_id <> depends_on_service_id"
         }
@@ -3257,6 +3675,23 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "sale_order_fulfillment": {
+          "name": "sale_order_fulfillment",
+          "schema": "public",
+          "items": [
+            "appointment",
+            "pickup"
+          ]
+        },
+        "sale_order_item_type": {
+          "name": "sale_order_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product",
+            "combo"
           ]
         },
         "sale_order_state": {
@@ -3590,6 +4025,23 @@
             "l"
           ]
         },
+        "sale_order_fulfillment": {
+          "name": "sale_order_fulfillment",
+          "schema": "public",
+          "items": [
+            "appointment",
+            "pickup"
+          ]
+        },
+        "sale_order_item_type": {
+          "name": "sale_order_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product",
+            "combo"
+          ]
+        },
         "sale_order_state": {
           "name": "sale_order_state",
           "schema": "public",
@@ -3871,6 +4323,23 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "sale_order_fulfillment": {
+          "name": "sale_order_fulfillment",
+          "schema": "public",
+          "items": [
+            "appointment",
+            "pickup"
+          ]
+        },
+        "sale_order_item_type": {
+          "name": "sale_order_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product",
+            "combo"
           ]
         },
         "sale_order_state": {
@@ -4167,6 +4636,23 @@
             "l"
           ]
         },
+        "sale_order_fulfillment": {
+          "name": "sale_order_fulfillment",
+          "schema": "public",
+          "items": [
+            "appointment",
+            "pickup"
+          ]
+        },
+        "sale_order_item_type": {
+          "name": "sale_order_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product",
+            "combo"
+          ]
+        },
         "sale_order_state": {
           "name": "sale_order_state",
           "schema": "public",
@@ -4390,6 +4876,23 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "sale_order_fulfillment": {
+          "name": "sale_order_fulfillment",
+          "schema": "public",
+          "items": [
+            "appointment",
+            "pickup"
+          ]
+        },
+        "sale_order_item_type": {
+          "name": "sale_order_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product",
+            "combo"
           ]
         },
         "sale_order_state": {
@@ -4687,6 +5190,102 @@
           "comment": null,
           "enumItems": [],
           "mappedType": "decimal"
+        },
+        "address_line1": {
+          "name": "address_line1",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "address_line2": {
+          "name": "address_line2",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "state": {
+          "name": "state",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "postal_code": {
+          "name": "postal_code",
+          "type": "varchar(32)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 32,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "latitude": {
+          "name": "latitude",
+          "type": "numeric(9,6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": 9,
+          "scale": 6,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "decimal"
+        },
+        "longitude": {
+          "name": "longitude",
+          "type": "numeric(9,6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": 9,
+          "scale": 6,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "decimal"
         }
       },
       "name": "tenants",
@@ -4783,6 +5382,23 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "sale_order_fulfillment": {
+          "name": "sale_order_fulfillment",
+          "schema": "public",
+          "items": [
+            "appointment",
+            "pickup"
+          ]
+        },
+        "sale_order_item_type": {
+          "name": "sale_order_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product",
+            "combo"
           ]
         },
         "sale_order_state": {
@@ -4962,6 +5578,23 @@
             "unit",
             "kg",
             "l"
+          ]
+        },
+        "sale_order_fulfillment": {
+          "name": "sale_order_fulfillment",
+          "schema": "public",
+          "items": [
+            "appointment",
+            "pickup"
+          ]
+        },
+        "sale_order_item_type": {
+          "name": "sale_order_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product",
+            "combo"
           ]
         },
         "sale_order_state": {
@@ -5259,6 +5892,23 @@
             "l"
           ]
         },
+        "sale_order_fulfillment": {
+          "name": "sale_order_fulfillment",
+          "schema": "public",
+          "items": [
+            "appointment",
+            "pickup"
+          ]
+        },
+        "sale_order_item_type": {
+          "name": "sale_order_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product",
+            "combo"
+          ]
+        },
         "sale_order_state": {
           "name": "sale_order_state",
           "schema": "public",
@@ -5358,6 +6008,23 @@
         "unit",
         "kg",
         "l"
+      ]
+    },
+    "sale_order_fulfillment": {
+      "name": "sale_order_fulfillment",
+      "schema": "public",
+      "items": [
+        "appointment",
+        "pickup"
+      ]
+    },
+    "sale_order_item_type": {
+      "name": "sale_order_item_type",
+      "schema": "public",
+      "items": [
+        "service",
+        "product",
+        "combo"
       ]
     },
     "sale_order_state": {

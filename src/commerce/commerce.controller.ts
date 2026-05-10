@@ -67,6 +67,16 @@ export class CommerceController {
     return { data };
   }
 
+  @Post('sale-orders/:id/mark-picked-up')
+  @HttpCode(HttpStatus.OK)
+  async markPickedUp(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<{ data: SaleOrderResponseDto }> {
+    const data = await this.commerceService.markPickedUp(user.tenantId, user.id, id);
+    return { data };
+  }
+
   @Get('refund-policies')
   async refundPolicies(@CurrentUser() user: RequestUser): Promise<{ data: RefundPolicyDto[] }> {
     const data = await this.commerceService.listRefundPolicies(user.tenantId);

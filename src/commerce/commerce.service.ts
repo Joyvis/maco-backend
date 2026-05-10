@@ -1,5 +1,9 @@
+import { computeComboPricing } from '@catalog/combo-pricing.helper';
+import { ComboItemType } from '@catalog/entities/combo-item.entity';
+import { Combo, ComboStatus } from '@catalog/entities/combo.entity';
+import { Product, ProductStatus } from '@catalog/entities/product.entity';
 import { ServiceDependency } from '@catalog/entities/service-dependency.entity';
-import { Service } from '@catalog/entities/service.entity';
+import { Service, ServiceStatus } from '@catalog/entities/service.entity';
 import { EntityManager } from '@mikro-orm/core';
 import {
   BadRequestException,
@@ -13,19 +17,71 @@ import { Tenant } from '@tenancy/entities/tenant.entity';
 import { User } from '@tenancy/entities/user.entity';
 
 import { CancelOrderDto } from './dto/cancel-order.dto';
-import { CreateBookingDto } from './dto/create-booking.dto';
+import {
+  CreateBookingDto,
+  CreateBookingFulfillment,
+  CreateBookingItemDto,
+  CreateBookingItemType,
+} from './dto/create-booking.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { RescheduleOrderDto } from './dto/reschedule-order.dto';
 import { BookingResultDto, RefundPolicyDto, SaleOrderResponseDto } from './dto/sale-order.dto';
 import { RefundPolicy } from './entities/refund-policy.entity';
-import { SaleOrderItem } from './entities/sale-order-item.entity';
-import { ACTIVE_BOOKING_STATES, SaleOrder, SaleOrderState } from './entities/sale-order.entity';
+import {
+  ComboComponentSnapshot,
+  SaleOrderItem,
+  SaleOrderItemType,
+} from './entities/sale-order-item.entity';
+import {
+  ACTIVE_BOOKING_STATES,
+  SaleOrder,
+  SaleOrderFulfillment,
+  SaleOrderState,
+} from './entities/sale-order.entity';
 
-// MikroORM mutates the options object passed to find/findOne/findAndCount
-// (e.g. it sets `populate`, `loggerContext`, `populateWhere` on it). Returning a
-// fresh literal each call keeps that mutation from leaking across calls — sharing
-// a constant here previously caused `populate: []` to overwrite `populate: ['service', 'staff']`.
 const noTenantFilter = () => ({ filters: { tenant: false } });
+
+interface ResolvedServiceLine {
+  kind: 'service';
+  service: Service;
+  quantity: 1;
+  assignedStaffId?: string;
+  unitPrice: number;
+  durationMinutes: number;
+  slotStart: Date;
+  slotEnd: Date;
+}
+
+interface ResolvedProductLine {
+  kind: 'product';
+  product: Product;
+  quantity: number;
+  unitPrice: number;
+}
+
+interface ResolvedComboServiceComponent {
+  service: Service;
+  durationMinutes: number;
+  basePrice: number;
+  slotStart: Date;
+  slotEnd: Date;
+  assignedStaffId?: string;
+}
+
+interface ResolvedComboLine {
+  kind: 'combo';
+  combo: Combo;
+  quantity: 1;
+  unitPrice: number;
+  totalDurationMinutes: number;
+  components: Array<
+    | ResolvedComboServiceComponent
+    | { kind: 'product'; product: Product; basePrice: number; quantity: number }
+  >;
+  snapshot: ComboComponentSnapshot[];
+}
+
+type ResolvedLine = ResolvedServiceLine | ResolvedProductLine | ResolvedComboLine;
 
 @Injectable()
 export class CommerceService {
@@ -36,89 +92,79 @@ export class CommerceService {
     customerId: string,
     dto: CreateBookingDto,
   ): Promise<BookingResultDto> {
-    const tenant = await this.em.findOne(
-      Tenant,
-      { id: tenantId, slug: dto.shop_slug },
-      { filters: false },
-    );
-    if (!tenant) throw new BadRequestException('shop_slug does not match tenant');
+    const normalized = await this.normalizeBookingDto(tenantId, dto);
 
-    const service = await this.em.findOne(
-      Service,
-      { id: dto.service_id, tenant_id: tenantId },
-      noTenantFilter(),
-    );
-    if (!service) throw new NotFoundException('Service not found');
-
-    const startAt = new Date(`${dto.date}T${dto.start_time}:00.000Z`);
-    if (Number.isNaN(startAt.getTime())) {
-      throw new BadRequestException('Invalid date/time');
+    if (normalized.fulfillment === SaleOrderFulfillment.APPOINTMENT) {
+      if (!normalized.scheduledStartAt) {
+        throw new BadRequestException('scheduled_start_at is required for appointment fulfillment');
+      }
+    } else {
+      if (normalized.scheduledStartAt) {
+        throw new BadRequestException('scheduled_start_at must not be set for pickup fulfillment');
+      }
+      if (normalized.items.some((i) => i.catalog_item_type !== CreateBookingItemType.PRODUCT)) {
+        throw new BadRequestException('pickup orders may only contain products');
+      }
     }
-    const endAt = new Date(startAt.getTime() + service.duration_minutes * 60_000);
 
     try {
       return await this.em.transactional(async (em) => {
-        const staffId = await this.pickStaff(
-          em,
-          tenantId,
-          service.id,
-          dto.staff_id,
-          startAt,
-          endAt,
-        );
         const customer = await em.findOne(
           User,
           { id: customerId, tenant_id: tenantId },
           noTenantFilter(),
         );
         if (!customer) throw new ForbiddenException('Customer not in tenant');
-        const staff = await em.findOne(
-          User,
-          { id: staffId, tenant_id: tenantId },
-          noTenantFilter(),
-        );
-        if (!staff) throw new UnprocessableEntityException('No staff available for this slot');
 
-        const dependencies = await em.find(
-          ServiceDependency,
-          { tenant_id: tenantId, service: service.id, auto_include: true },
-          { populate: ['depends_on_service'], ...noTenantFilter() },
-        );
+        const lines = await this.resolveLines(em, tenantId, normalized);
 
-        const totalAmount = Number(service.base_price);
+        let hasService = false;
+        for (const line of lines) {
+          if (line.kind === 'service') hasService = true;
+          if (line.kind === 'combo' && line.components.some((c) => 'service' in c)) {
+            hasService = true;
+          }
+        }
+        if (normalized.fulfillment === SaleOrderFulfillment.APPOINTMENT && !hasService) {
+          throw new BadRequestException(
+            'appointment orders must contain at least one service or combo with a service',
+          );
+        }
+
+        const totalAmount = lines.reduce((acc, l) => acc + lineTotal(l), 0);
         const requiresPayment = totalAmount > 0;
 
         const order = new SaleOrder();
         order.tenant_id = tenantId;
         order.customer = customer;
-        order.service = service;
-        order.staff = staff;
+        order.fulfillment = normalized.fulfillment;
         order.state = requiresPayment ? SaleOrderState.PENDING_PAYMENT : SaleOrderState.CONFIRMED;
-        order.scheduled_at = startAt;
-        order.scheduled_end_at = endAt;
         order.total_amount = totalAmount.toFixed(2);
         order.requires_payment = requiresPayment;
         if (requiresPayment) {
           order.payment_url = `/booking/pending/${order.id}`;
         }
+
+        if (normalized.fulfillment === SaleOrderFulfillment.APPOINTMENT) {
+          order.scheduled_at = normalized.scheduledStartAt!;
+          order.scheduled_end_at = computeAppointmentEnd(normalized.scheduledStartAt!, lines);
+          const firstService = findFirstService(lines);
+          if (firstService) {
+            order.service = firstService.service;
+            if (firstService.assignedStaffId) {
+              const staff = await em.findOne(
+                User,
+                { id: firstService.assignedStaffId, tenant_id: tenantId },
+                noTenantFilter(),
+              );
+              if (staff) order.staff = staff;
+            }
+          }
+        }
         em.persist(order);
 
-        const primaryItem = new SaleOrderItem();
-        primaryItem.tenant_id = tenantId;
-        primaryItem.sale_order = order;
-        primaryItem.service = service;
-        primaryItem.price = totalAmount.toFixed(2);
-        primaryItem.is_dependency = false;
-        em.persist(primaryItem);
-
-        for (const dep of dependencies) {
-          const item = new SaleOrderItem();
-          item.tenant_id = tenantId;
-          item.sale_order = order;
-          item.service = dep.depends_on_service;
-          item.price = '0.00';
-          item.is_dependency = true;
-          em.persist(item);
+        for (const line of lines) {
+          await this.persistLine(em, tenantId, order, line);
         }
 
         await em.flush();
@@ -160,7 +206,7 @@ export class CommerceService {
     }
 
     const [items, total] = await this.em.findAndCount(SaleOrder, where, {
-      orderBy: { scheduled_at: 'desc' },
+      orderBy: { created_at: 'desc' },
       limit: page_size,
       offset: (page - 1) * page_size,
       populate: ['service', 'staff'],
@@ -222,8 +268,14 @@ export class CommerceService {
     if (order.customer.id !== customerId) {
       throw new ForbiddenException("Cannot reschedule another user's order");
     }
+    if (order.fulfillment !== SaleOrderFulfillment.APPOINTMENT) {
+      throw new BadRequestException('Only appointment orders can be rescheduled');
+    }
     if (!ACTIVE_BOOKING_STATES.includes(order.state)) {
       throw new BadRequestException('Order cannot be rescheduled in its current state');
+    }
+    if (!order.service) {
+      throw new BadRequestException('Order has no primary service to reschedule');
     }
 
     const newEnd = new Date(newStart.getTime() + order.service.duration_minutes * 60_000);
@@ -245,6 +297,32 @@ export class CommerceService {
     return this.toOrderDto(order);
   }
 
+  async markPickedUp(
+    tenantId: string,
+    customerId: string,
+    orderId: string,
+  ): Promise<SaleOrderResponseDto> {
+    const order = await this.em.findOne(
+      SaleOrder,
+      { id: orderId, tenant_id: tenantId },
+      { populate: ['service', 'staff'], ...noTenantFilter() },
+    );
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.customer.id !== customerId) {
+      throw new ForbiddenException("Cannot modify another user's order");
+    }
+    if (order.fulfillment !== SaleOrderFulfillment.PICKUP) {
+      throw new BadRequestException('Only pickup orders can be marked as picked up');
+    }
+    if (order.state !== SaleOrderState.CONFIRMED) {
+      throw new BadRequestException('Pickup order must be confirmed before being picked up');
+    }
+    order.state = SaleOrderState.COMPLETED;
+    order.picked_up_at = new Date();
+    await this.em.flush();
+    return this.toOrderDto(order);
+  }
+
   async listRefundPolicies(tenantId: string): Promise<RefundPolicyDto[]> {
     const policies = await this.em.find(
       RefundPolicy,
@@ -258,15 +336,234 @@ export class CommerceService {
     }));
   }
 
-  private async pickStaff(
+  // ─────────────────────────────────────────────────────────────────────────
+  // Private helpers
+  // ─────────────────────────────────────────────────────────────────────────
+
+  private async normalizeBookingDto(
+    tenantId: string,
+    dto: CreateBookingDto,
+  ): Promise<{
+    fulfillment: SaleOrderFulfillment;
+    scheduledStartAt?: Date;
+    items: CreateBookingItemDto[];
+    legacyAutoPickStaff: boolean;
+  }> {
+    if (dto.shop_slug) {
+      const tenant = await this.em.findOne(
+        Tenant,
+        { id: tenantId, slug: dto.shop_slug },
+        { filters: false },
+      );
+      if (!tenant) throw new BadRequestException('shop_slug does not match tenant');
+    }
+
+    const isLegacy =
+      !dto.fulfillment && !dto.items && !!dto.service_id && !!dto.date && !!dto.start_time;
+
+    if (isLegacy) {
+      const startAt = new Date(`${dto.date!}T${dto.start_time!}:00.000Z`);
+      if (Number.isNaN(startAt.getTime())) {
+        throw new BadRequestException('Invalid date/time');
+      }
+      const items: CreateBookingItemDto[] = [
+        {
+          catalog_item_type: CreateBookingItemType.SERVICE,
+          catalog_item_id: dto.service_id!,
+          quantity: 1,
+          assigned_staff_id: dto.staff_id,
+        },
+      ];
+      return {
+        fulfillment: SaleOrderFulfillment.APPOINTMENT,
+        scheduledStartAt: startAt,
+        items,
+        legacyAutoPickStaff: !dto.staff_id,
+      };
+    }
+
+    if (!dto.fulfillment || !dto.items) {
+      throw new BadRequestException(
+        'fulfillment and items are required (or legacy {service_id,date,start_time})',
+      );
+    }
+
+    const fulfillment =
+      dto.fulfillment === CreateBookingFulfillment.APPOINTMENT
+        ? SaleOrderFulfillment.APPOINTMENT
+        : SaleOrderFulfillment.PICKUP;
+
+    let scheduledStartAt: Date | undefined;
+    if (dto.scheduled_start_at) {
+      scheduledStartAt = new Date(dto.scheduled_start_at);
+      if (Number.isNaN(scheduledStartAt.getTime())) {
+        throw new BadRequestException('Invalid scheduled_start_at');
+      }
+    }
+    return {
+      fulfillment,
+      scheduledStartAt,
+      items: dto.items,
+      legacyAutoPickStaff: false,
+    };
+  }
+
+  private async resolveLines(
+    em: EntityManager,
+    tenantId: string,
+    normalized: {
+      fulfillment: SaleOrderFulfillment;
+      scheduledStartAt?: Date;
+      items: CreateBookingItemDto[];
+      legacyAutoPickStaff: boolean;
+    },
+  ): Promise<ResolvedLine[]> {
+    const lines: ResolvedLine[] = [];
+    let cursorMinutes = 0;
+
+    for (const item of normalized.items) {
+      if (item.catalog_item_type === CreateBookingItemType.SERVICE) {
+        const service = await em.findOne(
+          Service,
+          { id: item.catalog_item_id, tenant_id: tenantId, status: ServiceStatus.ACTIVE },
+          noTenantFilter(),
+        );
+        if (!service) throw new NotFoundException(`Service ${item.catalog_item_id} not found`);
+        if (item.quantity !== 1) {
+          throw new BadRequestException('Service lines must have quantity = 1');
+        }
+        const slotStart = new Date(normalized.scheduledStartAt!.getTime() + cursorMinutes * 60_000);
+        const slotEnd = new Date(slotStart.getTime() + service.duration_minutes * 60_000);
+        const assignedStaffId = await this.resolveStaffForService(
+          em,
+          tenantId,
+          service.id,
+          item.assigned_staff_id,
+          slotStart,
+          slotEnd,
+          normalized.legacyAutoPickStaff,
+        );
+        lines.push({
+          kind: 'service',
+          service,
+          quantity: 1,
+          assignedStaffId,
+          unitPrice: Number(service.base_price),
+          durationMinutes: service.duration_minutes,
+          slotStart,
+          slotEnd,
+        });
+        cursorMinutes += service.duration_minutes;
+      } else if (item.catalog_item_type === CreateBookingItemType.PRODUCT) {
+        const product = await em.findOne(
+          Product,
+          { id: item.catalog_item_id, tenant_id: tenantId, status: ProductStatus.ACTIVE },
+          noTenantFilter(),
+        );
+        if (!product) throw new NotFoundException(`Product ${item.catalog_item_id} not found`);
+        if (item.quantity < 1) {
+          throw new BadRequestException('Product quantity must be >= 1');
+        }
+        lines.push({
+          kind: 'product',
+          product,
+          quantity: item.quantity,
+          unitPrice: Number(product.base_price),
+        });
+      } else {
+        // combo
+        const combo = await em.findOne(
+          Combo,
+          { id: item.catalog_item_id, tenant_id: tenantId, status: ComboStatus.ACTIVE },
+          { populate: ['items.service', 'items.product'], ...noTenantFilter() },
+        );
+        if (!combo) throw new NotFoundException(`Combo ${item.catalog_item_id} not found`);
+        if (item.quantity !== 1) {
+          throw new BadRequestException('Combo lines must have quantity = 1');
+        }
+
+        const pricing = computeComboPricing(combo);
+        const components: ResolvedComboLine['components'] = [];
+        const snapshot: ComboComponentSnapshot[] = [];
+
+        for (const comboItem of combo.items.getItems()) {
+          if (comboItem.item_type === ComboItemType.SERVICE) {
+            const svc = comboItem.service!;
+            const slotStart = new Date(
+              normalized.scheduledStartAt!.getTime() + cursorMinutes * 60_000,
+            );
+            const slotEnd = new Date(slotStart.getTime() + svc.duration_minutes * 60_000);
+            const assignedStaffId = await this.resolveStaffForService(
+              em,
+              tenantId,
+              svc.id,
+              item.assigned_staff_id,
+              slotStart,
+              slotEnd,
+              false,
+            );
+            components.push({
+              service: svc,
+              durationMinutes: svc.duration_minutes,
+              basePrice: Number(svc.base_price),
+              slotStart,
+              slotEnd,
+              assignedStaffId,
+            });
+            snapshot.push({
+              catalog_item_type: 'service',
+              catalog_item_id: svc.id,
+              name: svc.name,
+              base_price: Number(svc.base_price),
+              duration_minutes: svc.duration_minutes,
+              quantity: 1,
+              assigned_staff_id: assignedStaffId,
+              slot_start_at: slotStart.toISOString(),
+              slot_end_at: slotEnd.toISOString(),
+            });
+            cursorMinutes += svc.duration_minutes;
+          } else {
+            const prod = comboItem.product!;
+            components.push({
+              kind: 'product',
+              product: prod,
+              basePrice: Number(prod.base_price),
+              quantity: 1,
+            });
+            snapshot.push({
+              catalog_item_type: 'product',
+              catalog_item_id: prod.id,
+              name: prod.name,
+              base_price: Number(prod.base_price),
+              quantity: 1,
+            });
+          }
+        }
+
+        lines.push({
+          kind: 'combo',
+          combo,
+          quantity: 1,
+          unitPrice: pricing.total,
+          totalDurationMinutes: pricing.total_duration_minutes,
+          components,
+          snapshot,
+        });
+      }
+    }
+
+    return lines;
+  }
+
+  private async resolveStaffForService(
     em: EntityManager,
     tenantId: string,
     serviceId: string,
     requestedStaffId: string | undefined,
-    startAt: Date,
-    endAt: Date,
-  ): Promise<string> {
-    let candidateIds: string[];
+    slotStart: Date,
+    slotEnd: Date,
+    autoPickIfMissing: boolean,
+  ): Promise<string | undefined> {
     if (requestedStaffId) {
       const qual = await em.findOne(
         StaffQualification,
@@ -276,66 +573,185 @@ export class CommerceService {
       if (!qual) {
         throw new UnprocessableEntityException('Staff is not qualified for this service');
       }
-      candidateIds = [requestedStaffId];
-    } else {
-      const qualRows = (await em
-        .getConnection()
-        .execute(
-          `select user_id from staff_qualifications where tenant_id = ? and service_id = ?`,
-          [tenantId, serviceId],
-        )) as Array<{ user_id: string }>;
-      candidateIds = qualRows.map((r) => r.user_id);
-      if (candidateIds.length === 0) {
-        throw new UnprocessableEntityException('No qualified staff for this service');
+      const free = await this.isStaffFreeAt(em, tenantId, requestedStaffId, slotStart, slotEnd);
+      if (!free) {
+        throw new UnprocessableEntityException('Staff is not free at the requested slot');
       }
+      return requestedStaffId;
     }
 
-    const placeholders = candidateIds.map(() => '?').join(',');
+    if (!autoPickIfMissing) {
+      // pending pool — leave unassigned
+      return undefined;
+    }
+
+    const qualRows = (await em
+      .getConnection()
+      .execute(`select user_id from staff_qualifications where tenant_id = ? and service_id = ?`, [
+        tenantId,
+        serviceId,
+      ])) as Array<{ user_id: string }>;
+    const candidateIds = qualRows.map((r) => r.user_id);
+    if (candidateIds.length === 0) {
+      throw new UnprocessableEntityException('No qualified staff for this service');
+    }
+    for (const sid of candidateIds) {
+      if (await this.isStaffFreeAt(em, tenantId, sid, slotStart, slotEnd)) return sid;
+    }
+    throw new UnprocessableEntityException('Slot is not available');
+  }
+
+  private async isStaffFreeAt(
+    em: EntityManager,
+    tenantId: string,
+    staffId: string,
+    slotStart: Date,
+    slotEnd: Date,
+  ): Promise<boolean> {
+    const dow = slotStart.getUTCDay();
+    const startM = slotStart.getUTCHours() * 60 + slotStart.getUTCMinutes();
+    const endM = startM + Math.round((slotEnd.getTime() - slotStart.getTime()) / 60_000);
+
     const schedules = (await em
       .getConnection()
       .execute(
-        `select user_id, day_of_week, start_time, end_time from staff_schedules where tenant_id = ? and user_id in (${placeholders})`,
-        [tenantId, ...candidateIds],
-      )) as Array<{
-      user_id: string;
-      day_of_week: number;
-      start_time: string;
-      end_time: string;
-    }>;
-    const busyRows = (await em
+        `select day_of_week, start_time, end_time from staff_schedules where tenant_id = ? and user_id = ?`,
+        [tenantId, staffId],
+      )) as Array<{ day_of_week: number; start_time: string; end_time: string }>;
+    const fits = schedules.some(
+      (s) =>
+        s.day_of_week === dow &&
+        timeToMinutes(s.start_time) <= startM &&
+        timeToMinutes(s.end_time) >= endM,
+    );
+    if (!fits) return false;
+
+    const activePlaceholders = ACTIVE_BOOKING_STATES.map(() => '?').join(',');
+    const orderLevelBusy = (await em
       .getConnection()
       .execute(
-        `select staff_id from sale_orders where tenant_id = ? and staff_id in (${placeholders}) and state in (${ACTIVE_BOOKING_STATES.map(() => '?').join(',')}) and scheduled_at < ? and scheduled_end_at > ?`,
-        [tenantId, ...candidateIds, ...ACTIVE_BOOKING_STATES, endAt, startAt],
-      )) as Array<{ staff_id: string }>;
-    const busyIds = new Set(busyRows.map((r) => r.staff_id));
+        `select 1 from sale_orders where tenant_id = ? and staff_id = ? and state in (${activePlaceholders}) and scheduled_at < ? and scheduled_end_at > ?`,
+        [tenantId, staffId, ...ACTIVE_BOOKING_STATES, slotEnd, slotStart],
+      )) as unknown[];
+    if (orderLevelBusy.length > 0) return false;
 
-    const dow = startAt.getUTCDay();
-    const startM = startAt.getUTCHours() * 60 + startAt.getUTCMinutes();
-    const endM = startM + Math.round((endAt.getTime() - startAt.getTime()) / 60_000);
+    const itemLevelBusy = (await em.getConnection().execute(
+      `select 1 from sale_order_items i
+         join sale_orders so on so.id = i.sale_order_id
+         where i.tenant_id = ? and i.assigned_staff_id = ? and so.state in (${activePlaceholders})
+           and i.slot_start_at < ? and i.slot_end_at > ?`,
+      [tenantId, staffId, ...ACTIVE_BOOKING_STATES, slotEnd, slotStart],
+    )) as unknown[];
+    return itemLevelBusy.length === 0;
+  }
 
-    for (const sid of candidateIds) {
-      const fits = schedules.some(
-        (s) =>
-          s.user_id === sid &&
-          s.day_of_week === dow &&
-          timeToMinutes(s.start_time) <= startM &&
-          timeToMinutes(s.end_time) >= endM,
+  private async persistLine(
+    em: EntityManager,
+    tenantId: string,
+    order: SaleOrder,
+    line: ResolvedLine,
+  ): Promise<void> {
+    const item = new SaleOrderItem();
+    item.tenant_id = tenantId;
+    item.sale_order = order;
+    item.is_dependency = false;
+
+    if (line.kind === 'service') {
+      item.catalog_item_type = SaleOrderItemType.SERVICE;
+      item.catalog_item_id = line.service.id;
+      item.service = line.service;
+      item.quantity = 1;
+      item.price = line.unitPrice.toFixed(2);
+      item.slot_start_at = line.slotStart;
+      item.slot_end_at = line.slotEnd;
+      if (line.assignedStaffId) {
+        const staff = em.getReference(User, line.assignedStaffId);
+        item.assigned_staff = staff;
+      }
+      em.persist(item);
+      await this.persistAutoIncludedDependencies(
+        em,
+        tenantId,
+        order,
+        line.service.id,
+        line.slotStart,
+        line.slotEnd,
+        line.assignedStaffId,
       );
-      if (!fits) continue;
-      if (!busyIds.has(sid)) return sid;
+    } else if (line.kind === 'product') {
+      item.catalog_item_type = SaleOrderItemType.PRODUCT;
+      item.catalog_item_id = line.product.id;
+      item.product = line.product;
+      item.quantity = line.quantity;
+      item.price = line.unitPrice.toFixed(2);
+      em.persist(item);
+    } else {
+      item.catalog_item_type = SaleOrderItemType.COMBO;
+      item.catalog_item_id = line.combo.id;
+      item.combo = line.combo;
+      item.quantity = 1;
+      item.price = line.unitPrice.toFixed(2);
+      item.combo_components = line.snapshot;
+      em.persist(item);
+      for (const c of line.components) {
+        if ('service' in c) {
+          await this.persistAutoIncludedDependencies(
+            em,
+            tenantId,
+            order,
+            c.service.id,
+            c.slotStart,
+            c.slotEnd,
+            c.assignedStaffId,
+          );
+        }
+      }
     }
-    throw new UnprocessableEntityException('Slot is not available');
+  }
+
+  private async persistAutoIncludedDependencies(
+    em: EntityManager,
+    tenantId: string,
+    order: SaleOrder,
+    serviceId: string,
+    slotStart: Date,
+    slotEnd: Date,
+    assignedStaffId: string | undefined,
+  ): Promise<void> {
+    const dependencies = await em.find(
+      ServiceDependency,
+      { tenant_id: tenantId, service: serviceId, auto_include: true },
+      { populate: ['depends_on_service'], ...noTenantFilter() },
+    );
+    for (const dep of dependencies) {
+      const item = new SaleOrderItem();
+      item.tenant_id = tenantId;
+      item.sale_order = order;
+      item.catalog_item_type = SaleOrderItemType.SERVICE;
+      item.catalog_item_id = dep.depends_on_service.id;
+      item.service = dep.depends_on_service;
+      item.quantity = 1;
+      item.price = '0.00';
+      item.is_dependency = true;
+      item.slot_start_at = slotStart;
+      item.slot_end_at = slotEnd;
+      if (assignedStaffId) {
+        item.assigned_staff = em.getReference(User, assignedStaffId);
+      }
+      em.persist(item);
+    }
   }
 
   private toOrderDto(o: SaleOrder): SaleOrderResponseDto {
     return {
       id: o.id,
       state: o.state,
-      scheduled_at: o.scheduled_at.toISOString(),
-      service_name: o.service.name,
+      fulfillment: o.fulfillment === SaleOrderFulfillment.APPOINTMENT ? 'appointment' : 'pickup',
+      scheduled_at: o.scheduled_at?.toISOString(),
+      service_name: o.service?.name,
       professional_name: o.staff?.full_name,
       total_amount: Number(o.total_amount),
+      picked_up_at: o.picked_up_at?.toISOString(),
       created_at: o.created_at.toISOString(),
     };
   }
@@ -356,4 +772,37 @@ function isUniqueViolation(err: unknown): boolean {
     }
   }
   return false;
+}
+
+function lineTotal(line: ResolvedLine): number {
+  if (line.kind === 'service') return line.unitPrice;
+  if (line.kind === 'product') return line.unitPrice * line.quantity;
+  return line.unitPrice;
+}
+
+function findFirstService(
+  lines: ResolvedLine[],
+): { service: Service; assignedStaffId?: string } | undefined {
+  for (const line of lines) {
+    if (line.kind === 'service') {
+      return { service: line.service, assignedStaffId: line.assignedStaffId };
+    }
+    if (line.kind === 'combo') {
+      for (const c of line.components) {
+        if ('service' in c) {
+          return { service: c.service, assignedStaffId: c.assignedStaffId };
+        }
+      }
+    }
+  }
+  return undefined;
+}
+
+function computeAppointmentEnd(start: Date, lines: ResolvedLine[]): Date {
+  let totalMinutes = 0;
+  for (const line of lines) {
+    if (line.kind === 'service') totalMinutes += line.durationMinutes;
+    else if (line.kind === 'combo') totalMinutes += line.totalDurationMinutes;
+  }
+  return new Date(start.getTime() + totalMinutes * 60_000);
 }

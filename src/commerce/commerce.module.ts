@@ -1,3 +1,6 @@
+import { ComboItem } from '@catalog/entities/combo-item.entity';
+import { Combo } from '@catalog/entities/combo.entity';
+import { Product } from '@catalog/entities/product.entity';
 import { ServiceDependency } from '@catalog/entities/service-dependency.entity';
 import { Service } from '@catalog/entities/service.entity';
 import { MikroOrmModule } from '@mikro-orm/nestjs';
@@ -21,6 +24,9 @@ import { SaleOrder } from './entities/sale-order.entity';
       RefundPolicy,
       Service,
       ServiceDependency,
+      Combo,
+      ComboItem,
+      Product,
       Tenant,
       User,
       StaffQualification,
