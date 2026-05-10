@@ -1,8 +1,11 @@
 import { Service } from '@catalog/entities/service.entity';
 import { EntityManager } from '@mikro-orm/core';
+import { PaymentsService } from '@payments/payments.service';
 import { Tenant } from '@tenancy/entities/tenant.entity';
 
 import { CommerceService } from './commerce.service';
+
+const noopPayments = { startCheckout: jest.fn() } as unknown as PaymentsService;
 
 // Regression: previously `commerce.service.ts` shared a module-level
 // `NO_TENANT_FILTER = { filters: { tenant: false } }` object across every
@@ -43,7 +46,7 @@ describe('CommerceService — populate option leak guard', () => {
     };
     fakeEm.transactional = jest.fn((cb: (em: unknown) => Promise<unknown>) => cb(fakeEm));
 
-    const service = new CommerceService(fakeEm as unknown as EntityManager);
+    const service = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
 
     await expect(
       service.createBooking('tenant-1', 'customer-1', {
