@@ -145,6 +145,8 @@ export class CommerceService {
         order.state = requiresPayment ? SaleOrderState.PENDING_PAYMENT : SaleOrderState.CONFIRMED;
         order.total_amount = totalAmount.toFixed(2);
         order.requires_payment = requiresPayment;
+        order.booking_channel = dto.booking_channel;
+        order.notes = dto.notes;
 
         if (normalized.fulfillment === SaleOrderFulfillment.APPOINTMENT) {
           order.scheduled_at = normalized.scheduledStartAt!;
@@ -759,6 +761,8 @@ export class CommerceService {
       professional_name: o.staff?.full_name,
       total_amount: Number(o.total_amount),
       picked_up_at: o.picked_up_at?.toISOString(),
+      booking_channel: o.booking_channel ?? null,
+      notes: o.notes ?? null,
       created_at: o.created_at.toISOString(),
     };
   }

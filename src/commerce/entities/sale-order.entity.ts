@@ -5,6 +5,13 @@ import { User } from '@tenancy/entities/user.entity';
 
 import { SaleOrderItem } from './sale-order-item.entity';
 
+export enum BookingChannel {
+  APP = 'app',
+  WALK_IN = 'walk_in',
+  PHONE = 'phone',
+  WHATSAPP = 'whatsapp',
+}
+
 export enum SaleOrderState {
   PENDING_PAYMENT = 'pending_payment',
   PENDING_CHECKOUT = 'pending_checkout',
@@ -69,6 +76,12 @@ export class SaleOrder extends TenantScopedEntity {
 
   @Property({ type: 'timestamptz', nullable: true })
   picked_up_at?: Date;
+
+  @Enum({ items: () => BookingChannel, nullable: true })
+  booking_channel?: BookingChannel;
+
+  @Property({ type: 'text', nullable: true })
+  notes?: string;
 
   @OneToMany(() => SaleOrderItem, (i) => i.sale_order)
   items = new Collection<SaleOrderItem>(this);
