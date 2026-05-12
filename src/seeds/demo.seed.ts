@@ -443,19 +443,12 @@ async function ensureProducts(em: EntityManager): Promise<void> {
   await em.flush();
 }
 
-async function ensureCombos(
-  em: EntityManager,
-  services: Map<string, Service>,
-): Promise<void> {
+async function ensureCombos(em: EntityManager, services: Map<string, Service>): Promise<void> {
   const corte = services.get(ID.SVC_CORTE);
   const lavagem = services.get(ID.SVC_LAVAGEM);
   if (!corte || !lavagem) return;
 
-  const existingCombo = await em.findOne(
-    Combo,
-    { id: ID.COMBO_CORTE_LAVAGEM },
-    { filters: false },
-  );
+  const existingCombo = await em.findOne(Combo, { id: ID.COMBO_CORTE_LAVAGEM }, { filters: false });
   let combo: Combo;
   if (!existingCombo) {
     combo = em.create(Combo, {
