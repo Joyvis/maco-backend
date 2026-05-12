@@ -48,6 +48,15 @@ export class CommerceController {
     return this.commerceService.listMyOrders(user.tenantId, customerId, query);
   }
 
+  @Get('sale-orders/:id')
+  async getOrder(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<{ data: SaleOrderResponseDto }> {
+    const data = await this.commerceService.getOrder(user.tenantId, user.id, id);
+    return { data };
+  }
+
   @Post('sale-orders/:id/cancel')
   @HttpCode(HttpStatus.OK)
   async cancel(

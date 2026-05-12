@@ -7,6 +7,8 @@ export interface SaleOrderResponseDto {
   professional_name?: string;
   total_amount: number;
   picked_up_at?: string;
+  booking_channel: string | null;
+  notes: string | null;
   created_at: string;
 }
 
@@ -14,6 +16,8 @@ export interface BookingResultDto {
   id: string;
   requires_payment: boolean;
   payment_url?: string;
+  booking_channel: string | null;
+  notes: string | null;
 }
 
 export interface RefundPolicyDto {
