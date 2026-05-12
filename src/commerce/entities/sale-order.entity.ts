@@ -70,6 +70,18 @@ export class SaleOrder extends TenantScopedEntity {
   @Property({ type: 'timestamptz', nullable: true })
   picked_up_at?: Date;
 
+  @Property({ type: 'timestamptz', nullable: true })
+  checked_in_at?: Date;
+
+  @Property({ type: 'timestamptz', nullable: true })
+  started_at?: Date;
+
+  @Property({ type: 'timestamptz', nullable: true })
+  completed_service_at?: Date;
+
+  @Property({ type: 'timestamptz', nullable: true })
+  no_show_at?: Date;
+
   @OneToMany(() => SaleOrderItem, (i) => i.sale_order)
   items = new Collection<SaleOrderItem>(this);
 }

@@ -7,6 +7,7 @@ import { Service, ServiceStatus } from '@catalog/entities/service.entity';
 import { EntityManager } from '@mikro-orm/core';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -330,6 +331,66 @@ export class CommerceService {
     return this.toOrderDto(order);
   }
 
+  async checkIn(tenantId: string, _userId: string, orderId: string): Promise<SaleOrderResponseDto> {
+    const order = await this.em.findOne(
+      SaleOrder,
+      { id: orderId, tenant_id: tenantId },
+      { populate: ['service', 'staff'], ...noTenantFilter() },
+    );
+    if (!order) throw new NotFoundException('Order not found');
+    this.assertTransition(order, SaleOrderState.CONFIRMED, SaleOrderState.CHECKED_IN);
+    order.state = SaleOrderState.CHECKED_IN;
+    order.checked_in_at = new Date();
+    await this.em.flush();
+    return this.toOrderDto(order);
+  }
+
+  async start(tenantId: string, _userId: string, orderId: string): Promise<SaleOrderResponseDto> {
+    const order = await this.em.findOne(
+      SaleOrder,
+      { id: orderId, tenant_id: tenantId },
+      { populate: ['service', 'staff'], ...noTenantFilter() },
+    );
+    if (!order) throw new NotFoundException('Order not found');
+    this.assertTransition(order, SaleOrderState.CHECKED_IN, SaleOrderState.IN_PROGRESS);
+    order.state = SaleOrderState.IN_PROGRESS;
+    order.started_at = new Date();
+    await this.em.flush();
+    return this.toOrderDto(order);
+  }
+
+  async complete(
+    tenantId: string,
+    _userId: string,
+    orderId: string,
+  ): Promise<SaleOrderResponseDto> {
+    const order = await this.em.findOne(
+      SaleOrder,
+      { id: orderId, tenant_id: tenantId },
+      { populate: ['service', 'staff'], ...noTenantFilter() },
+    );
+    if (!order) throw new NotFoundException('Order not found');
+    this.assertTransition(order, SaleOrderState.IN_PROGRESS, SaleOrderState.PENDING_CHECKOUT);
+    order.state = SaleOrderState.PENDING_CHECKOUT;
+    order.completed_service_at = new Date();
+    await this.em.flush();
+    return this.toOrderDto(order);
+  }
+
+  async noShow(tenantId: string, _userId: string, orderId: string): Promise<SaleOrderResponseDto> {
+    const order = await this.em.findOne(
+      SaleOrder,
+      { id: orderId, tenant_id: tenantId },
+      { populate: ['service', 'staff'], ...noTenantFilter() },
+    );
+    if (!order) throw new NotFoundException('Order not found');
+    this.assertTransition(order, SaleOrderState.CONFIRMED, SaleOrderState.NO_SHOW);
+    order.state = SaleOrderState.NO_SHOW;
+    order.no_show_at = new Date();
+    await this.em.flush();
+    return this.toOrderDto(order);
+  }
+
   async listRefundPolicies(tenantId: string): Promise<RefundPolicyDto[]> {
     const policies = await this.em.find(
       RefundPolicy,
@@ -346,6 +407,14 @@ export class CommerceService {
   // ─────────────────────────────────────────────────────────────────────────
   // Private helpers
   // ─────────────────────────────────────────────────────────────────────────
+
+  assertTransition(order: SaleOrder, from: SaleOrderState, to: SaleOrderState): void {
+    if (order.state !== from) {
+      throw new ConflictException(
+        `Cannot transition to ${to}: order is in state ${order.state}, expected ${from}`,
+      );
+    }
+  }
 
   private async normalizeBookingDto(
     tenantId: string,

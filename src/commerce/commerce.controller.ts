@@ -8,9 +8,12 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '@tenancy/auth/current-user.decorator';
 import { RequestUser } from '@tenancy/auth/jwt-payload.interface';
+import { Roles } from '@tenancy/auth/roles.decorator';
+import { RolesGuard } from '@tenancy/auth/roles.guard';
 
 import { CommerceService } from './commerce.service';
 import { CancelOrderDto } from './dto/cancel-order.dto';
@@ -74,6 +77,54 @@ export class CommerceController {
     @CurrentUser() user: RequestUser,
   ): Promise<{ data: SaleOrderResponseDto }> {
     const data = await this.commerceService.markPickedUp(user.tenantId, user.id, id);
+    return { data };
+  }
+
+  @Post('sale-orders/:id/check-in')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'ta')
+  async checkIn(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<{ data: SaleOrderResponseDto }> {
+    const data = await this.commerceService.checkIn(user.tenantId, user.id, id);
+    return { data };
+  }
+
+  @Post('sale-orders/:id/start')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'ta')
+  async start(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<{ data: SaleOrderResponseDto }> {
+    const data = await this.commerceService.start(user.tenantId, user.id, id);
+    return { data };
+  }
+
+  @Post('sale-orders/:id/complete')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'ta')
+  async complete(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<{ data: SaleOrderResponseDto }> {
+    const data = await this.commerceService.complete(user.tenantId, user.id, id);
+    return { data };
+  }
+
+  @Post('sale-orders/:id/no-show')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'ta')
+  async noShow(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<{ data: SaleOrderResponseDto }> {
+    const data = await this.commerceService.noShow(user.tenantId, user.id, id);
     return { data };
   }
 
