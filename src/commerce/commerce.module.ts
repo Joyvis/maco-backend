@@ -7,6 +7,7 @@ import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { Module } from '@nestjs/common';
 import { StaffSchedule } from '@scheduling/entities/staff-schedule.entity';
 import { StaffQualification } from '@tenancy/entities/staff-qualification.entity';
+import { TenantConfig } from '@tenancy/entities/tenant-config.entity';
 import { Tenant } from '@tenancy/entities/tenant.entity';
 import { User } from '@tenancy/entities/user.entity';
 
@@ -31,6 +32,7 @@ import { SaleOrder } from './entities/sale-order.entity';
       ComboItem,
       Product,
       Tenant,
+      TenantConfig,
       User,
       StaffQualification,
       StaffSchedule,
