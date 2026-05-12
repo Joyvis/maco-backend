@@ -847,6 +847,7 @@ export class CommerceService {
       item.catalog_item_type = SaleOrderItemType.SERVICE;
       item.catalog_item_id = line.service.id;
       item.service = line.service;
+      item.name_snapshot = line.service.name;
       item.quantity = 1;
       item.price = line.unitPrice.toFixed(2);
       item.slot_start_at = line.slotStart;
@@ -869,6 +870,7 @@ export class CommerceService {
       item.catalog_item_type = SaleOrderItemType.PRODUCT;
       item.catalog_item_id = line.product.id;
       item.product = line.product;
+      item.name_snapshot = line.product.name;
       item.quantity = line.quantity;
       item.price = line.unitPrice.toFixed(2);
       em.persist(item);
@@ -876,6 +878,7 @@ export class CommerceService {
       item.catalog_item_type = SaleOrderItemType.COMBO;
       item.catalog_item_id = line.combo.id;
       item.combo = line.combo;
+      item.name_snapshot = line.combo.name;
       item.quantity = 1;
       item.price = line.unitPrice.toFixed(2);
       item.combo_components = line.snapshot;
@@ -917,6 +920,7 @@ export class CommerceService {
       item.catalog_item_type = SaleOrderItemType.SERVICE;
       item.catalog_item_id = dep.depends_on_service.id;
       item.service = dep.depends_on_service;
+      item.name_snapshot = dep.depends_on_service.name;
       item.quantity = 1;
       item.price = '0.00';
       item.is_dependency = true;
@@ -1009,7 +1013,7 @@ function toAppointmentDto(order: SaleOrder): AgendaAppointmentDto {
   const serviceNames = order.items
     .getItems()
     .filter((i) => i.catalog_item_type === SaleOrderItemType.SERVICE && !i.is_dependency)
-    .map((i) => i.service?.name)
+    .map((i) => i.name_snapshot ?? i.service?.name)
     .filter((n): n is string => Boolean(n))
     .join(', ');
 
