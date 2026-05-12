@@ -258,9 +258,7 @@ describe('CommerceService.getAgenda', () => {
     };
     const em = {
       findOne: jest.fn().mockResolvedValue(null),
-      find: jest
-        .fn()
-        .mockResolvedValueOnce([{ id: 'staff-1', full_name: 'Idle Staff' }]),
+      find: jest.fn().mockResolvedValueOnce([{ id: 'staff-1', full_name: 'Idle Staff' }]),
       getConnection: () => conn,
     } as unknown as EntityManager;
     const svc = new CommerceService(em, noopPayments);
