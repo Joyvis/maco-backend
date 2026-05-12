@@ -46,4 +46,7 @@ COPY --from=build --chown=app:app /app/dist ./dist
 COPY --chown=app:app package.json ./
 USER app
 EXPOSE $PORT
-CMD ["node", "dist/main.js"]
+# nest build emits to dist/src/* (not dist/*) because mikro-orm.config.ts at the
+# repo root forces TypeScript's rootDir up a level. The build's actual entry is
+# dist/src/main.js.
+CMD ["node", "dist/src/main.js"]

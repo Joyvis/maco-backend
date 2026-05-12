@@ -16,6 +16,9 @@ import { RefundPolicy } from './entities/refund-policy.entity';
 import { SaleOrderItem } from './entities/sale-order-item.entity';
 import { SaleOrder } from './entities/sale-order.entity';
 
+// PaymentsModule is registered globally in AppModule (`PaymentsModule.register()`),
+// so CommerceService can inject `PaymentsService` without an explicit import here.
+
 @Module({
   imports: [
     MikroOrmModule.forFeature([

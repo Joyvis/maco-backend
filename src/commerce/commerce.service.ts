@@ -12,6 +12,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { PaymentsService } from '@payments/payments.service';
 import { StaffQualification } from '@tenancy/entities/staff-qualification.entity';
 import { Tenant } from '@tenancy/entities/tenant.entity';
 import { User } from '@tenancy/entities/user.entity';
@@ -85,7 +86,10 @@ type ResolvedLine = ResolvedServiceLine | ResolvedProductLine | ResolvedComboLin
 
 @Injectable()
 export class CommerceService {
-  constructor(private readonly em: EntityManager) {}
+  constructor(
+    private readonly em: EntityManager,
+    private readonly paymentsService: PaymentsService,
+  ) {}
 
   async createBooking(
     tenantId: string,
@@ -141,9 +145,6 @@ export class CommerceService {
         order.state = requiresPayment ? SaleOrderState.PENDING_PAYMENT : SaleOrderState.CONFIRMED;
         order.total_amount = totalAmount.toFixed(2);
         order.requires_payment = requiresPayment;
-        if (requiresPayment) {
-          order.payment_url = `/booking/pending/${order.id}`;
-        }
 
         if (normalized.fulfillment === SaleOrderFulfillment.APPOINTMENT) {
           order.scheduled_at = normalized.scheduledStartAt!;
@@ -165,6 +166,12 @@ export class CommerceService {
 
         for (const line of lines) {
           await this.persistLine(em, tenantId, order, line);
+        }
+
+        if (requiresPayment) {
+          // Atomic with the order: a provider failure here rolls back the booking.
+          const checkout = await this.paymentsService.startCheckout(em, order);
+          order.payment_url = checkout.paymentUrl;
         }
 
         await em.flush();
