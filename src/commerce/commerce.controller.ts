@@ -16,6 +16,8 @@ import { Roles } from '@tenancy/auth/roles.decorator';
 import { RolesGuard } from '@tenancy/auth/roles.guard';
 
 import { CommerceService } from './commerce.service';
+import { AgendaQueryDto } from './dto/agenda-query.dto';
+import { AgendaResponseDto } from './dto/agenda-response.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
@@ -46,6 +48,17 @@ export class CommerceController {
   }> {
     const customerId = query.customer_id === 'me' || !query.customer_id ? user.id : user.id;
     return this.commerceService.listMyOrders(user.tenantId, customerId, query);
+  }
+
+  @Get('sale-orders/agenda')
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'ta')
+  async getAgenda(
+    @Query() query: AgendaQueryDto,
+    @CurrentUser() user: RequestUser,
+  ): Promise<{ data: AgendaResponseDto }> {
+    const data = await this.commerceService.getAgenda(user.tenantId, query.date);
+    return { data };
   }
 
   @Get('sale-orders/:id')

@@ -65,4 +65,7 @@ export class SaleOrderItem extends TenantScopedEntity {
 
   @Property({ type: 'boolean' })
   is_dependency: boolean = false;
+
+  @Property({ type: 'text', nullable: true })
+  name_snapshot?: string;
 }
