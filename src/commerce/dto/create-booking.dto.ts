@@ -9,9 +9,12 @@ import {
   IsString,
   IsUUID,
   Matches,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
+
+import { BookingChannel } from '../entities/sale-order.entity';
 
 export enum CreateBookingItemType {
   SERVICE = 'service',
@@ -64,6 +67,15 @@ export class CreateBookingDto {
   @ValidateNested({ each: true })
   @Type(() => CreateBookingItemDto)
   items?: CreateBookingItemDto[];
+
+  @IsOptional()
+  @IsEnum(BookingChannel)
+  booking_channel?: BookingChannel;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  notes?: string;
 
   // ── Legacy single-service payload (kept for backwards compat) ─────────────
   @IsOptional()
