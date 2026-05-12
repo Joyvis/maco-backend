@@ -16,6 +16,8 @@ export interface BookingResultDto {
   id: string;
   requires_payment: boolean;
   payment_url?: string;
+  booking_channel: string | null;
+  notes: string | null;
 }
 
 export interface RefundPolicyDto {

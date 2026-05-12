@@ -77,7 +77,7 @@ export class SaleOrder extends TenantScopedEntity {
   @Property({ type: 'timestamptz', nullable: true })
   picked_up_at?: Date;
 
-  @Enum({ items: () => BookingChannel, nullable: true })
+  @Property({ type: 'varchar', length: 16, nullable: true })
   booking_channel?: BookingChannel;
 
   @Property({ type: 'text', nullable: true })

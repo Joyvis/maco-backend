@@ -3,11 +3,9 @@ import { Migration } from '@mikro-orm/migrations';
 
 export class Migration20260512000000 extends Migration {
   async up(): Promise<void> {
-    this.addSql(`create type "booking_channel" as enum ('app', 'walk_in', 'phone', 'whatsapp');`);
-
     this.addSql(`
       alter table "sale_orders"
-        add column "booking_channel" "booking_channel" null,
+        add column "booking_channel" varchar(16) null,
         add column "notes" text null;
     `);
   }
@@ -18,7 +16,5 @@ export class Migration20260512000000 extends Migration {
         drop column if exists "booking_channel",
         drop column if exists "notes";
     `);
-
-    this.addSql(`drop type if exists "booking_channel";`);
   }
 }

@@ -44,4 +44,10 @@ describe('CreateBookingDto — notes validation', () => {
     const errors = await validate(dto);
     expect(errors.filter((e) => e.property === 'notes')).toHaveLength(0);
   });
+
+  it('accepts explicit null notes', async () => {
+    const dto = plainToInstance(CreateBookingDto, { notes: null });
+    const errors = await validate(dto);
+    expect(errors.filter((e) => e.property === 'notes')).toHaveLength(0);
+  });
 });

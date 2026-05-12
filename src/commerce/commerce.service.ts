@@ -182,6 +182,8 @@ export class CommerceService {
           id: order.id,
           requires_payment: requiresPayment,
           payment_url: order.payment_url,
+          booking_channel: order.booking_channel ?? null,
+          notes: order.notes ?? null,
         };
       });
     } catch (err) {
@@ -226,6 +228,23 @@ export class CommerceService {
       data: items.map((o) => this.toOrderDto(o)),
       meta: { total, page, page_size },
     };
+  }
+
+  async getOrder(
+    tenantId: string,
+    customerId: string,
+    orderId: string,
+  ): Promise<SaleOrderResponseDto> {
+    const order = await this.em.findOne(
+      SaleOrder,
+      { id: orderId, tenant_id: tenantId },
+      { populate: ['service', 'staff'], ...noTenantFilter() },
+    );
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.customer.id !== customerId) {
+      throw new ForbiddenException('Access denied');
+    }
+    return this.toOrderDto(order);
   }
 
   async cancelOrder(
