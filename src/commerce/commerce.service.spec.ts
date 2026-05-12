@@ -1,9 +1,11 @@
 import { Service } from '@catalog/entities/service.entity';
 import { EntityManager } from '@mikro-orm/core';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { PaymentsService } from '@payments/payments.service';
 import { Tenant } from '@tenancy/entities/tenant.entity';
 
 import { CommerceService } from './commerce.service';
+import { SaleOrder, SaleOrderFulfillment, SaleOrderState } from './entities/sale-order.entity';
 
 const noopPayments = { startCheckout: jest.fn() } as unknown as PaymentsService;
 
@@ -62,5 +64,190 @@ describe('CommerceService — populate option leak guard', () => {
     expect(findAndCountOptions).toHaveLength(1);
     expect(findAndCountOptions[0].populate).toEqual(['service', 'staff']);
     expect(findAndCountOptions[0].filters).toEqual({ tenant: false });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// State transition helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface FakeEm {
+  findOne: jest.Mock;
+  flush: jest.Mock;
+}
+
+function makeOrder(state: SaleOrderState): SaleOrder {
+  const o = new SaleOrder();
+  o.state = state;
+  o.fulfillment = SaleOrderFulfillment.APPOINTMENT;
+  o.customer = { id: 'customer-1' } as never;
+  return o;
+}
+
+function makeEm(order: SaleOrder | null): FakeEm {
+  return {
+    findOne: jest.fn().mockResolvedValue(order),
+    flush: jest.fn().mockResolvedValue(undefined),
+  };
+}
+
+describe('CommerceService — assertTransition', () => {
+  const service = new CommerceService(
+    { findOne: jest.fn(), flush: jest.fn() } as unknown as EntityManager,
+    noopPayments,
+  );
+
+  it('does not throw when current state matches required from-state', () => {
+    const order = makeOrder(SaleOrderState.CONFIRMED);
+    expect(() =>
+      service.assertTransition(order, SaleOrderState.CONFIRMED, SaleOrderState.CHECKED_IN),
+    ).not.toThrow();
+  });
+
+  it('throws ConflictException when state does not match', () => {
+    const order = makeOrder(SaleOrderState.PENDING_PAYMENT);
+    expect(() =>
+      service.assertTransition(order, SaleOrderState.CONFIRMED, SaleOrderState.CHECKED_IN),
+    ).toThrow(ConflictException);
+  });
+});
+
+describe('CommerceService — checkIn', () => {
+  it('transitions confirmed → checked_in and sets checked_in_at', async () => {
+    const order = makeOrder(SaleOrderState.CONFIRMED);
+    const fakeEm = makeEm(order);
+    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+
+    const result = await svc.checkIn('tenant-1', 'user-1', 'order-1');
+
+    expect(order.state).toBe(SaleOrderState.CHECKED_IN);
+    expect(order.checked_in_at).toBeInstanceOf(Date);
+    expect(fakeEm.flush).toHaveBeenCalled();
+    expect(result.state).toBe(SaleOrderState.CHECKED_IN);
+  });
+
+  it('throws NotFoundException when order does not exist', async () => {
+    const fakeEm = makeEm(null);
+    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    await expect(svc.checkIn('tenant-1', 'user-1', 'order-1')).rejects.toThrow(NotFoundException);
+  });
+
+  it('throws ConflictException when order is not in confirmed state', async () => {
+    const order = makeOrder(SaleOrderState.CHECKED_IN);
+    const fakeEm = makeEm(order);
+    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    await expect(svc.checkIn('tenant-1', 'user-1', 'order-1')).rejects.toThrow(ConflictException);
+  });
+
+  it('throws ConflictException for pending_payment state', async () => {
+    const order = makeOrder(SaleOrderState.PENDING_PAYMENT);
+    const fakeEm = makeEm(order);
+    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    await expect(svc.checkIn('tenant-1', 'user-1', 'order-1')).rejects.toThrow(ConflictException);
+  });
+});
+
+describe('CommerceService — start', () => {
+  it('transitions checked_in → in_progress and sets started_at', async () => {
+    const order = makeOrder(SaleOrderState.CHECKED_IN);
+    const fakeEm = makeEm(order);
+    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+
+    const result = await svc.start('tenant-1', 'user-1', 'order-1');
+
+    expect(order.state).toBe(SaleOrderState.IN_PROGRESS);
+    expect(order.started_at).toBeInstanceOf(Date);
+    expect(fakeEm.flush).toHaveBeenCalled();
+    expect(result.state).toBe(SaleOrderState.IN_PROGRESS);
+  });
+
+  it('throws NotFoundException when order does not exist', async () => {
+    const fakeEm = makeEm(null);
+    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    await expect(svc.start('tenant-1', 'user-1', 'order-1')).rejects.toThrow(NotFoundException);
+  });
+
+  it('throws ConflictException when order is not in checked_in state', async () => {
+    const order = makeOrder(SaleOrderState.CONFIRMED);
+    const fakeEm = makeEm(order);
+    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    await expect(svc.start('tenant-1', 'user-1', 'order-1')).rejects.toThrow(ConflictException);
+  });
+});
+
+describe('CommerceService — complete', () => {
+  it('transitions in_progress → pending_checkout and sets completed_service_at', async () => {
+    const order = makeOrder(SaleOrderState.IN_PROGRESS);
+    const fakeEm = makeEm(order);
+    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+
+    const result = await svc.complete('tenant-1', 'user-1', 'order-1');
+
+    expect(order.state).toBe(SaleOrderState.PENDING_CHECKOUT);
+    expect(order.completed_service_at).toBeInstanceOf(Date);
+    expect(fakeEm.flush).toHaveBeenCalled();
+    expect(result.state).toBe(SaleOrderState.PENDING_CHECKOUT);
+  });
+
+  it('throws NotFoundException when order does not exist', async () => {
+    const fakeEm = makeEm(null);
+    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    await expect(svc.complete('tenant-1', 'user-1', 'order-1')).rejects.toThrow(NotFoundException);
+  });
+
+  it('throws ConflictException when order is not in in_progress state', async () => {
+    const order = makeOrder(SaleOrderState.CHECKED_IN);
+    const fakeEm = makeEm(order);
+    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    await expect(svc.complete('tenant-1', 'user-1', 'order-1')).rejects.toThrow(ConflictException);
+  });
+});
+
+describe('CommerceService — noShow', () => {
+  it('transitions confirmed → no_show and sets no_show_at', async () => {
+    const order = makeOrder(SaleOrderState.CONFIRMED);
+    const fakeEm = makeEm(order);
+    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+
+    const result = await svc.noShow('tenant-1', 'user-1', 'order-1');
+
+    expect(order.state).toBe(SaleOrderState.NO_SHOW);
+    expect(order.no_show_at).toBeInstanceOf(Date);
+    expect(fakeEm.flush).toHaveBeenCalled();
+    expect(result.state).toBe(SaleOrderState.NO_SHOW);
+  });
+
+  it('throws NotFoundException when order does not exist', async () => {
+    const fakeEm = makeEm(null);
+    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    await expect(svc.noShow('tenant-1', 'user-1', 'order-1')).rejects.toThrow(NotFoundException);
+  });
+
+  it('throws ConflictException when order is not in confirmed state', async () => {
+    const order = makeOrder(SaleOrderState.IN_PROGRESS);
+    const fakeEm = makeEm(order);
+    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    await expect(svc.noShow('tenant-1', 'user-1', 'order-1')).rejects.toThrow(ConflictException);
+  });
+});
+
+describe('CommerceService — full happy-path flow', () => {
+  it('confirmed → checked_in → in_progress → pending_checkout', async () => {
+    const order = makeOrder(SaleOrderState.CONFIRMED);
+    const fakeEm = makeEm(order);
+    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+
+    await svc.checkIn('tenant-1', 'user-1', 'order-1');
+    expect(order.state).toBe(SaleOrderState.CHECKED_IN);
+
+    await svc.start('tenant-1', 'user-1', 'order-1');
+    expect(order.state).toBe(SaleOrderState.IN_PROGRESS);
+
+    await svc.complete('tenant-1', 'user-1', 'order-1');
+    expect(order.state).toBe(SaleOrderState.PENDING_CHECKOUT);
+
+    expect(order.checked_in_at).toBeInstanceOf(Date);
+    expect(order.started_at).toBeInstanceOf(Date);
+    expect(order.completed_service_at).toBeInstanceOf(Date);
   });
 });
