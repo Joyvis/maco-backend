@@ -608,6 +608,76 @@ describe('Booking cart (e2e)', () => {
   });
 
   // ──────────────────────────────────────────────────────────
+  // booking_channel + notes persistence
+  // ──────────────────────────────────────────────────────────
+
+  it('POST /sale-orders persists booking_channel + notes and returns them in GET list + GET by id', async () => {
+    const shop = await seedShop('shopbc');
+
+    const createRes = await request(app.getHttpServer())
+      .post('/sale-orders')
+      .set('Authorization', `Bearer ${shop.customerToken}`)
+      .send({
+        fulfillment: 'pickup',
+        booking_channel: 'walk_in',
+        notes: 'Cliente pediu para não usar máquina 0',
+        items: [{ catalog_item_type: 'product', catalog_item_id: shop.product.id, quantity: 1 }],
+      })
+      .expect(201);
+
+    const body = createRes.body as {
+      data: { id: string; booking_channel: string | null; notes: string | null };
+    };
+    expect(body.data.booking_channel).toBe('walk_in');
+    expect(body.data.notes).toBe('Cliente pediu para não usar máquina 0');
+
+    const orderId = body.data.id;
+
+    const listRes = await request(app.getHttpServer())
+      .get('/sale-orders')
+      .set('Authorization', `Bearer ${shop.customerToken}`)
+      .expect(200);
+
+    const listBody = listRes.body as {
+      data: Array<{ id: string; booking_channel: string | null; notes: string | null }>;
+    };
+    const listed = listBody.data.find((o) => o.id === orderId);
+    expect(listed).toBeDefined();
+    expect(listed!.booking_channel).toBe('walk_in');
+    expect(listed!.notes).toBe('Cliente pediu para não usar máquina 0');
+
+    const getRes = await request(app.getHttpServer())
+      .get(`/sale-orders/${orderId}`)
+      .set('Authorization', `Bearer ${shop.customerToken}`)
+      .expect(200);
+
+    const getBody = getRes.body as {
+      data: { booking_channel: string | null; notes: string | null };
+    };
+    expect(getBody.data.booking_channel).toBe('walk_in');
+    expect(getBody.data.notes).toBe('Cliente pediu para não usar máquina 0');
+  });
+
+  it('POST /sale-orders stores null booking_channel + notes when omitted', async () => {
+    const shop = await seedShop('shopbc2');
+
+    const createRes = await request(app.getHttpServer())
+      .post('/sale-orders')
+      .set('Authorization', `Bearer ${shop.customerToken}`)
+      .send({
+        fulfillment: 'pickup',
+        items: [{ catalog_item_type: 'product', catalog_item_id: shop.product.id, quantity: 1 }],
+      })
+      .expect(201);
+
+    const body = createRes.body as {
+      data: { id: string; booking_channel: string | null; notes: string | null };
+    };
+    expect(body.data.booking_channel).toBeNull();
+    expect(body.data.notes).toBeNull();
+  });
+
+  // ──────────────────────────────────────────────────────────
   // Public availability + qualified-staff
   // ──────────────────────────────────────────────────────────
 

@@ -7,6 +7,7 @@ import { Service, ServiceStatus } from '@catalog/entities/service.entity';
 import { EntityManager } from '@mikro-orm/core';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -14,9 +15,15 @@ import {
 } from '@nestjs/common';
 import { PaymentsService } from '@payments/payments.service';
 import { StaffQualification } from '@tenancy/entities/staff-qualification.entity';
+import { TenantConfig } from '@tenancy/entities/tenant-config.entity';
 import { Tenant } from '@tenancy/entities/tenant.entity';
 import { User } from '@tenancy/entities/user.entity';
 
+import {
+  AgendaAppointmentDto,
+  AgendaResponseDto,
+  AgendaStaffEntryDto,
+} from './dto/agenda-response.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import {
   CreateBookingDto,
@@ -145,6 +152,8 @@ export class CommerceService {
         order.state = requiresPayment ? SaleOrderState.PENDING_PAYMENT : SaleOrderState.CONFIRMED;
         order.total_amount = totalAmount.toFixed(2);
         order.requires_payment = requiresPayment;
+        order.booking_channel = dto.booking_channel;
+        order.notes = dto.notes;
 
         if (normalized.fulfillment === SaleOrderFulfillment.APPOINTMENT) {
           order.scheduled_at = normalized.scheduledStartAt!;
@@ -180,6 +189,8 @@ export class CommerceService {
           id: order.id,
           requires_payment: requiresPayment,
           payment_url: order.payment_url,
+          booking_channel: order.booking_channel ?? null,
+          notes: order.notes ?? null,
         };
       });
     } catch (err) {
@@ -224,6 +235,23 @@ export class CommerceService {
       data: items.map((o) => this.toOrderDto(o)),
       meta: { total, page, page_size },
     };
+  }
+
+  async getOrder(
+    tenantId: string,
+    customerId: string,
+    orderId: string,
+  ): Promise<SaleOrderResponseDto> {
+    const order = await this.em.findOne(
+      SaleOrder,
+      { id: orderId, tenant_id: tenantId },
+      { populate: ['service', 'staff'], ...noTenantFilter() },
+    );
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.customer.id !== customerId) {
+      throw new ForbiddenException('Access denied');
+    }
+    return this.toOrderDto(order);
   }
 
   async cancelOrder(
@@ -330,6 +358,66 @@ export class CommerceService {
     return this.toOrderDto(order);
   }
 
+  async checkIn(tenantId: string, _userId: string, orderId: string): Promise<SaleOrderResponseDto> {
+    const order = await this.em.findOne(
+      SaleOrder,
+      { id: orderId, tenant_id: tenantId },
+      { populate: ['service', 'staff'], ...noTenantFilter() },
+    );
+    if (!order) throw new NotFoundException('Order not found');
+    this.assertTransition(order, SaleOrderState.CONFIRMED, SaleOrderState.CHECKED_IN);
+    order.state = SaleOrderState.CHECKED_IN;
+    order.checked_in_at = new Date();
+    await this.em.flush();
+    return this.toOrderDto(order);
+  }
+
+  async start(tenantId: string, _userId: string, orderId: string): Promise<SaleOrderResponseDto> {
+    const order = await this.em.findOne(
+      SaleOrder,
+      { id: orderId, tenant_id: tenantId },
+      { populate: ['service', 'staff'], ...noTenantFilter() },
+    );
+    if (!order) throw new NotFoundException('Order not found');
+    this.assertTransition(order, SaleOrderState.CHECKED_IN, SaleOrderState.IN_PROGRESS);
+    order.state = SaleOrderState.IN_PROGRESS;
+    order.started_at = new Date();
+    await this.em.flush();
+    return this.toOrderDto(order);
+  }
+
+  async complete(
+    tenantId: string,
+    _userId: string,
+    orderId: string,
+  ): Promise<SaleOrderResponseDto> {
+    const order = await this.em.findOne(
+      SaleOrder,
+      { id: orderId, tenant_id: tenantId },
+      { populate: ['service', 'staff'], ...noTenantFilter() },
+    );
+    if (!order) throw new NotFoundException('Order not found');
+    this.assertTransition(order, SaleOrderState.IN_PROGRESS, SaleOrderState.PENDING_CHECKOUT);
+    order.state = SaleOrderState.PENDING_CHECKOUT;
+    order.completed_service_at = new Date();
+    await this.em.flush();
+    return this.toOrderDto(order);
+  }
+
+  async noShow(tenantId: string, _userId: string, orderId: string): Promise<SaleOrderResponseDto> {
+    const order = await this.em.findOne(
+      SaleOrder,
+      { id: orderId, tenant_id: tenantId },
+      { populate: ['service', 'staff'], ...noTenantFilter() },
+    );
+    if (!order) throw new NotFoundException('Order not found');
+    this.assertTransition(order, SaleOrderState.CONFIRMED, SaleOrderState.NO_SHOW);
+    order.state = SaleOrderState.NO_SHOW;
+    order.no_show_at = new Date();
+    await this.em.flush();
+    return this.toOrderDto(order);
+  }
+
   async listRefundPolicies(tenantId: string): Promise<RefundPolicyDto[]> {
     const policies = await this.em.find(
       RefundPolicy,
@@ -343,9 +431,101 @@ export class CommerceService {
     }));
   }
 
+  async getAgenda(tenantId: string, date: string): Promise<AgendaResponseDto> {
+    const tzRow = await this.em.findOne(
+      TenantConfig,
+      { tenant_id: tenantId, key: 'timezone' },
+      noTenantFilter(),
+    );
+    const timezone = tzRow?.value ?? 'America/Sao_Paulo';
+
+    const dayOfWeek = localDayOfWeek(date);
+
+    // Load non-cancelled appointment orders for the local date (timezone-aware)
+    const orderIdRows = (await this.em
+      .getConnection()
+      .execute(
+        `SELECT id FROM sale_orders WHERE tenant_id = ? AND state != ? AND scheduled_at IS NOT NULL AND (scheduled_at AT TIME ZONE ?)::date = ?::date`,
+        [tenantId, SaleOrderState.CANCELLED, timezone, date],
+      )) as Array<{ id: string }>;
+
+    const orderIds = orderIdRows.map((r) => r.id);
+
+    const orders =
+      orderIds.length > 0
+        ? await this.em.find(
+            SaleOrder,
+            { id: { $in: orderIds } },
+            { populate: ['customer', 'items.service', 'staff'], ...noTenantFilter() },
+          )
+        : [];
+
+    // Load staff schedules for the day of week
+    const scheduleRows = (await this.em
+      .getConnection()
+      .execute(
+        `SELECT user_id, start_time, end_time FROM staff_schedules WHERE tenant_id = ? AND day_of_week = ?`,
+        [tenantId, dayOfWeek],
+      )) as Array<{ user_id: string; start_time: string; end_time: string }>;
+
+    // Collect all staff IDs from schedules + from orders (drift)
+    const scheduleStaffIds = new Set(scheduleRows.map((r) => r.user_id));
+    const orderStaffIds = new Set(orders.filter((o) => o.staff?.id).map((o) => o.staff!.id));
+    const allStaffIds = [...new Set([...scheduleStaffIds, ...orderStaffIds])];
+
+    const staffUsers =
+      allStaffIds.length > 0
+        ? await this.em.find(
+            User,
+            { id: { $in: allStaffIds }, tenant_id: tenantId },
+            noTenantFilter(),
+          )
+        : [];
+
+    // Group orders by staff_id
+    const assignedOrders = new Map<string, SaleOrder[]>();
+    const unassignedOrders: SaleOrder[] = [];
+
+    for (const order of orders) {
+      const staffId = order.staff?.id;
+      if (staffId) {
+        const bucket = assignedOrders.get(staffId) ?? [];
+        bucket.push(order);
+        assignedOrders.set(staffId, bucket);
+      } else {
+        unassignedOrders.push(order);
+      }
+    }
+
+    const staff: AgendaStaffEntryDto[] = allStaffIds.map((staffId) => {
+      const user = staffUsers.find((u) => u.id === staffId);
+      const schedule = scheduleRows.find((s) => s.user_id === staffId);
+      const staffOrderList = assignedOrders.get(staffId) ?? [];
+      const appointments = staffOrderList.map(toAppointmentDto);
+      return {
+        id: staffId,
+        name: user?.full_name ?? '',
+        schedule_start: schedule ? trimTime(schedule.start_time) : null,
+        schedule_end: schedule ? trimTime(schedule.end_time) : null,
+        appointment_count: appointments.length,
+        appointments,
+      };
+    });
+
+    return { staff, unassigned: unassignedOrders.map(toAppointmentDto) };
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Private helpers
   // ─────────────────────────────────────────────────────────────────────────
+
+  assertTransition(order: SaleOrder, from: SaleOrderState, to: SaleOrderState): void {
+    if (order.state !== from) {
+      throw new ConflictException(
+        `Cannot transition to ${to}: order is in state ${order.state}, expected ${from}`,
+      );
+    }
+  }
 
   private async normalizeBookingDto(
     tenantId: string,
@@ -667,6 +847,7 @@ export class CommerceService {
       item.catalog_item_type = SaleOrderItemType.SERVICE;
       item.catalog_item_id = line.service.id;
       item.service = line.service;
+      item.name_snapshot = line.service.name;
       item.quantity = 1;
       item.price = line.unitPrice.toFixed(2);
       item.slot_start_at = line.slotStart;
@@ -689,6 +870,7 @@ export class CommerceService {
       item.catalog_item_type = SaleOrderItemType.PRODUCT;
       item.catalog_item_id = line.product.id;
       item.product = line.product;
+      item.name_snapshot = line.product.name;
       item.quantity = line.quantity;
       item.price = line.unitPrice.toFixed(2);
       em.persist(item);
@@ -696,6 +878,7 @@ export class CommerceService {
       item.catalog_item_type = SaleOrderItemType.COMBO;
       item.catalog_item_id = line.combo.id;
       item.combo = line.combo;
+      item.name_snapshot = line.combo.name;
       item.quantity = 1;
       item.price = line.unitPrice.toFixed(2);
       item.combo_components = line.snapshot;
@@ -737,6 +920,7 @@ export class CommerceService {
       item.catalog_item_type = SaleOrderItemType.SERVICE;
       item.catalog_item_id = dep.depends_on_service.id;
       item.service = dep.depends_on_service;
+      item.name_snapshot = dep.depends_on_service.name;
       item.quantity = 1;
       item.price = '0.00';
       item.is_dependency = true;
@@ -759,6 +943,8 @@ export class CommerceService {
       professional_name: o.staff?.full_name,
       total_amount: Number(o.total_amount),
       picked_up_at: o.picked_up_at?.toISOString(),
+      booking_channel: o.booking_channel ?? null,
+      notes: o.notes ?? null,
       created_at: o.created_at.toISOString(),
     };
   }
@@ -812,4 +998,43 @@ function computeAppointmentEnd(start: Date, lines: ResolvedLine[]): Date {
     else if (line.kind === 'combo') totalMinutes += line.totalDurationMinutes;
   }
   return new Date(start.getTime() + totalMinutes * 60_000);
+}
+
+function localDayOfWeek(dateStr: string): number {
+  return new Date(`${dateStr}T00:00:00.000Z`).getUTCDay();
+}
+
+// Normalise HH:MM:SS storage format (from Postgres `time` column) to HH:MM
+function trimTime(t: string): string {
+  return t.slice(0, 5);
+}
+
+function toAppointmentDto(order: SaleOrder): AgendaAppointmentDto {
+  const serviceNames = order.items
+    .getItems()
+    .filter((i) => i.catalog_item_type === SaleOrderItemType.SERVICE && !i.is_dependency)
+    .map((i) => i.name_snapshot ?? i.service?.name)
+    .filter((n): n is string => Boolean(n))
+    .join(', ');
+
+  const durationMinutes =
+    order.scheduled_at && order.scheduled_end_at
+      ? Math.round((order.scheduled_end_at.getTime() - order.scheduled_at.getTime()) / 60_000)
+      : null;
+
+  return {
+    id: order.id,
+    customer_name: order.customer.full_name,
+    customer_phone: order.customer.phone ?? null,
+    customer_email: order.customer.email,
+    services: serviceNames,
+    scheduled_start_at: order.scheduled_at!.toISOString(),
+    scheduled_end_at: order.scheduled_end_at?.toISOString() ?? null,
+    duration_minutes: durationMinutes,
+    state: order.state,
+    total: Number(order.total_amount),
+    booking_channel: order.booking_channel ?? null,
+    created_at: order.created_at.toISOString(),
+    notes: order.notes ?? null,
+  };
 }

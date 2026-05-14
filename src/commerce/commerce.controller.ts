@@ -8,11 +8,16 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '@tenancy/auth/current-user.decorator';
 import { RequestUser } from '@tenancy/auth/jwt-payload.interface';
+import { Roles } from '@tenancy/auth/roles.decorator';
+import { RolesGuard } from '@tenancy/auth/roles.guard';
 
 import { CommerceService } from './commerce.service';
+import { AgendaQueryDto } from './dto/agenda-query.dto';
+import { AgendaResponseDto } from './dto/agenda-response.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
@@ -45,6 +50,26 @@ export class CommerceController {
     return this.commerceService.listMyOrders(user.tenantId, customerId, query);
   }
 
+  @Get('sale-orders/agenda')
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'ta')
+  async getAgenda(
+    @Query() query: AgendaQueryDto,
+    @CurrentUser() user: RequestUser,
+  ): Promise<{ data: AgendaResponseDto }> {
+    const data = await this.commerceService.getAgenda(user.tenantId, query.date);
+    return { data };
+  }
+
+  @Get('sale-orders/:id')
+  async getOrder(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<{ data: SaleOrderResponseDto }> {
+    const data = await this.commerceService.getOrder(user.tenantId, user.id, id);
+    return { data };
+  }
+
   @Post('sale-orders/:id/cancel')
   @HttpCode(HttpStatus.OK)
   async cancel(
@@ -74,6 +99,54 @@ export class CommerceController {
     @CurrentUser() user: RequestUser,
   ): Promise<{ data: SaleOrderResponseDto }> {
     const data = await this.commerceService.markPickedUp(user.tenantId, user.id, id);
+    return { data };
+  }
+
+  @Post('sale-orders/:id/check-in')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'ta')
+  async checkIn(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<{ data: SaleOrderResponseDto }> {
+    const data = await this.commerceService.checkIn(user.tenantId, user.id, id);
+    return { data };
+  }
+
+  @Post('sale-orders/:id/start')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'ta')
+  async start(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<{ data: SaleOrderResponseDto }> {
+    const data = await this.commerceService.start(user.tenantId, user.id, id);
+    return { data };
+  }
+
+  @Post('sale-orders/:id/complete')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'ta')
+  async complete(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<{ data: SaleOrderResponseDto }> {
+    const data = await this.commerceService.complete(user.tenantId, user.id, id);
+    return { data };
+  }
+
+  @Post('sale-orders/:id/no-show')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'ta')
+  async noShow(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<{ data: SaleOrderResponseDto }> {
+    const data = await this.commerceService.noShow(user.tenantId, user.id, id);
     return { data };
   }
 
