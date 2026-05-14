@@ -9,8 +9,6 @@ import { SaleOrder, SaleOrderFulfillment, SaleOrderState } from './entities/sale
 
 const noopPayments = { startCheckout: jest.fn() } as unknown as PaymentsService;
 
-const noopPayments = { startCheckout: jest.fn() } as unknown as PaymentsService;
-
 // Regression: previously `commerce.service.ts` shared a module-level
 // `NO_TENANT_FILTER = { filters: { tenant: false } }` object across every
 // MikroORM call. MikroORM mutates the `options` object it receives —
