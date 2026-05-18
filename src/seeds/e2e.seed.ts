@@ -19,22 +19,32 @@ import { User, UserState } from '../tenancy/entities/user.entity';
 
 import { ensureTenantRoles, runDemoSeed } from './demo.seed';
 
+// Source of truth for e2e credentials. The frontend's e2e/credentials.ts
+// mirrors these — keep both files in sync when changing emails or passwords.
+//
+// Personas:
+//   - Platform Admin → manages all tenants (platform-type tenant)
+//   - Tenant Owner   → owner@salao-demo.test (seeded by runDemoSeed)
+//   - Tenant Staff   → ana@salao-demo.test (seeded by runDemoSeed; designated TA)
+//   - Customer       → customer@demo.test  (seeded by runDemoSeed)
+
 const ID = {
   SVC_AUTO_FAIL: '01900000-0000-7000-8000-0000000000a0',
-  ACME_TENANT: '01900000-0000-7000-8000-0000000000b0',
-  ACME_PLAN: '01900000-0000-7000-8000-0000000000b9',
-  ACME_ROLE_OWNER: '01900000-0000-7000-8000-0000000000ba',
-  ACME_ROLE_STAFF: '01900000-0000-7000-8000-0000000000bb',
-  ACME_ROLE_CUSTOMER: '01900000-0000-7000-8000-0000000000bc',
-  ACME_OWNER: '01900000-0000-7000-8000-0000000000b1',
+  PLATFORM_TENANT: '01900000-0000-7000-8000-0000000000d0',
+  PLATFORM_PLAN: '01900000-0000-7000-8000-0000000000d9',
+  PLATFORM_ROLE_OWNER: '01900000-0000-7000-8000-0000000000da',
+  PLATFORM_ROLE_STAFF: '01900000-0000-7000-8000-0000000000db',
+  PLATFORM_ROLE_CUSTOMER: '01900000-0000-7000-8000-0000000000dc',
+  PLATFORM_ROLE_TA: '01900000-0000-7000-8000-0000000000dd',
+  PLATFORM_OWNER: '01900000-0000-7000-8000-0000000000d1',
 };
 
 const AUTO_FAIL_NAME = 'Auto Falha';
 const AUTO_FAIL_PRICE = '0.34';
 const AUTO_FAIL_DURATION = 30;
 
-const ACME_OWNER_EMAIL = 'owner@acme.test';
-const ACME_OWNER_PASSWORD = 'Passw0rd!';
+const PLATFORM_ADMIN_EMAIL = 'platform@maco.test';
+const PLATFORM_ADMIN_PASSWORD = 'demo1234';
 
 async function ensureAutoFailService(
   em: EntityManager,
@@ -81,17 +91,17 @@ async function ensureAutoFailService(
   return svc;
 }
 
-async function ensureAcmeTenant(em: EntityManager): Promise<Tenant> {
-  let tenant = await em.findOne(Tenant, { id: ID.ACME_TENANT }, { filters: false });
+async function ensurePlatformTenant(em: EntityManager): Promise<Tenant> {
+  let tenant = await em.findOne(Tenant, { id: ID.PLATFORM_TENANT }, { filters: false });
   if (!tenant) {
     tenant = em.create(Tenant, {
-      id: ID.ACME_TENANT,
-      name: 'ACME Salão',
-      account_type: AccountType.STANDARD,
+      id: ID.PLATFORM_TENANT,
+      name: 'MACO Platform',
+      account_type: AccountType.PLATFORM,
       status: TenantStatus.ACTIVE,
-      plan_id: ID.ACME_PLAN,
-      subscription_type: SubscriptionType.FREE_TRIAL,
-      slug: 'acme',
+      plan_id: ID.PLATFORM_PLAN,
+      subscription_type: SubscriptionType.PAID,
+      slug: 'platform',
     });
     await em.persistAndFlush(tenant);
   } else if (tenant.status !== TenantStatus.ACTIVE) {
@@ -101,23 +111,23 @@ async function ensureAcmeTenant(em: EntityManager): Promise<Tenant> {
   return tenant;
 }
 
-async function ensureAcmeOwner(em: EntityManager, ownerRole: Role): Promise<User> {
-  let user = await em.findOne(User, { id: ID.ACME_OWNER }, { filters: false });
+async function ensurePlatformAdmin(em: EntityManager, ownerRole: Role): Promise<User> {
+  let user = await em.findOne(User, { id: ID.PLATFORM_OWNER }, { filters: false });
   if (!user) {
     user = await em.findOne(
       User,
-      { tenant_id: ID.ACME_TENANT, email: ACME_OWNER_EMAIL },
+      { tenant_id: ID.PLATFORM_TENANT, email: PLATFORM_ADMIN_EMAIL },
       { filters: false },
     );
   }
   if (!user) {
-    const passwordHash = await bcrypt.hash(ACME_OWNER_PASSWORD, 10);
+    const passwordHash = await bcrypt.hash(PLATFORM_ADMIN_PASSWORD, 10);
     user = em.create(User, {
-      id: ID.ACME_OWNER,
-      tenant_id: ID.ACME_TENANT,
-      email: ACME_OWNER_EMAIL,
+      id: ID.PLATFORM_OWNER,
+      tenant_id: ID.PLATFORM_TENANT,
+      email: PLATFORM_ADMIN_EMAIL,
       password_hash: passwordHash,
-      full_name: 'ACME Owner',
+      full_name: 'MACO Platform Admin',
       state: UserState.ACTIVE,
     });
     await em.persistAndFlush(user);
@@ -142,24 +152,26 @@ async function run(): Promise<void> {
     const demo = await runDemoSeed(em);
     await ensureAutoFailService(em, demo.tenant, demo.category, demo.staff);
 
-    const acmeTenant = await ensureAcmeTenant(em);
-    const acmeRoles = await ensureTenantRoles(em, ID.ACME_TENANT, {
-      owner: ID.ACME_ROLE_OWNER,
-      staff: ID.ACME_ROLE_STAFF,
-      customer: ID.ACME_ROLE_CUSTOMER,
+    const platformTenant = await ensurePlatformTenant(em);
+    const platformRoles = await ensureTenantRoles(em, ID.PLATFORM_TENANT, {
+      owner: ID.PLATFORM_ROLE_OWNER,
+      staff: ID.PLATFORM_ROLE_STAFF,
+      customer: ID.PLATFORM_ROLE_CUSTOMER,
+      ta: ID.PLATFORM_ROLE_TA,
     });
-    await ensureAcmeOwner(em, acmeRoles.owner);
+    await ensurePlatformAdmin(em, platformRoles.owner);
 
     console.log('\nE2E seed complete.');
     console.log('  Demo tenant:');
-    console.log(`    tenant_id:  ${demo.tenant.id}`);
-    console.log(`    shop slug:  ${demo.tenant.slug}`);
-    console.log(`    owner:      owner@salao-demo.test / demo1234`);
-    console.log(`    customer:   customer@demo.test / demo1234`);
-    console.log(`    auto-fail:  "${AUTO_FAIL_NAME}" @ R$ ${AUTO_FAIL_PRICE}`);
-    console.log('  ACME tenant:');
-    console.log(`    tenant_id:  ${acmeTenant.id}`);
-    console.log(`    owner:      ${ACME_OWNER_EMAIL} / ${ACME_OWNER_PASSWORD}\n`);
+    console.log(`    tenant_id:    ${demo.tenant.id}`);
+    console.log(`    shop slug:    ${demo.tenant.slug}`);
+    console.log(`    owner:        owner@salao-demo.test / demo1234`);
+    console.log(`    ta (staff):   ana@salao-demo.test / demo1234`);
+    console.log(`    customer:     customer@demo.test / demo1234`);
+    console.log(`    auto-fail:    "${AUTO_FAIL_NAME}" @ R$ ${AUTO_FAIL_PRICE}`);
+    console.log('  Platform tenant:');
+    console.log(`    tenant_id:    ${platformTenant.id}`);
+    console.log(`    platform:     ${PLATFORM_ADMIN_EMAIL} / ${PLATFORM_ADMIN_PASSWORD}\n`);
   } finally {
     await orm.close(true);
   }

@@ -40,6 +40,7 @@ const ID = {
   ROLE_OWNER: '01900000-0000-7000-8000-000000000030',
   ROLE_STAFF: '01900000-0000-7000-8000-000000000031',
   ROLE_CUSTOMER: '01900000-0000-7000-8000-000000000032',
+  ROLE_TA: '01900000-0000-7000-8000-00000000003a',
   OWNER: '01900000-0000-7000-8000-000000000033',
   STAFF_ANA: '01900000-0000-7000-8000-000000000040',
   STAFF_BRUNO: '01900000-0000-7000-8000-000000000041',
@@ -141,17 +142,19 @@ async function ensureBranding(em: EntityManager, tenant: Tenant): Promise<void> 
 export async function ensureTenantRoles(
   em: EntityManager,
   tenantId: string,
-  ids: { owner: string; staff: string; customer: string },
+  ids: { owner: string; staff: string; customer: string; ta: string },
 ): Promise<{
   owner: Role;
   staff: Role;
   customer: Role;
+  ta: Role;
 }> {
   const roles: Record<string, Role> = {};
   const want = [
     { id: ids.owner, name: 'owner' },
     { id: ids.staff, name: 'staff' },
     { id: ids.customer, name: 'customer' },
+    { id: ids.ta, name: 'ta' },
   ];
   for (const r of want) {
     let role = await em.findOne(Role, { tenant_id: tenantId, name: r.name }, { filters: false });
@@ -167,7 +170,12 @@ export async function ensureTenantRoles(
     roles[r.name] = role;
   }
   await em.flush();
-  return { owner: roles.owner, staff: roles.staff, customer: roles.customer };
+  return {
+    owner: roles.owner,
+    staff: roles.staff,
+    customer: roles.customer,
+    ta: roles.ta,
+  };
 }
 
 async function ensureCategory(em: EntityManager): Promise<Category> {
@@ -290,6 +298,7 @@ const STAFF: SeedStaff[] = [
 async function ensureStaff(
   em: EntityManager,
   staffRole: Role,
+  taRole: Role,
   services: Map<string, Service>,
 ): Promise<Map<string, User>> {
   const passwordHash = await bcrypt.hash('demo1234', 10);
@@ -310,13 +319,15 @@ async function ensureStaff(
     }
     map.set(s.id, user);
 
-    const roleLink = await em.findOne(
-      UserRole,
-      { user: user.id, role: staffRole.id },
-      { filters: false },
-    );
-    if (!roleLink) {
-      em.persist(em.create(UserRole, { user, role: staffRole }));
+    // Professionals get both `staff` (qualifies them as bookable) and `ta`
+    // (receptionist permissions for /recepcao/* pages). This mirrors the
+    // small-salon reality where the receptionist also styles hair, and is
+    // what the e2e suite assumes for the TA persona (ana@salao-demo.test).
+    for (const role of [staffRole, taRole]) {
+      const link = await em.findOne(UserRole, { user: user.id, role: role.id }, { filters: false });
+      if (!link) {
+        em.persist(em.create(UserRole, { user, role }));
+      }
     }
 
     for (const svcId of s.qualifications) {
@@ -636,7 +647,7 @@ export interface DemoSeedHandles {
   category: Category;
   services: Map<string, Service>;
   staff: Map<string, User>;
-  roles: { owner: Role; staff: Role; customer: Role };
+  roles: { owner: Role; staff: Role; customer: Role; ta: Role };
   customer: User;
 }
 
@@ -647,13 +658,14 @@ export async function runDemoSeed(em: EntityManager): Promise<DemoSeedHandles> {
     owner: ID.ROLE_OWNER,
     staff: ID.ROLE_STAFF,
     customer: ID.ROLE_CUSTOMER,
+    ta: ID.ROLE_TA,
   });
   const category = await ensureCategory(em);
   const services = await ensureServices(em, category);
   await ensureDependencies(em, services);
   await ensureProducts(em);
   await ensureCombos(em, services);
-  const staff = await ensureStaff(em, roles.staff, services);
+  const staff = await ensureStaff(em, roles.staff, roles.ta, services);
   await ensureWorkingHours(em, staff);
   await ensureOwner(em, roles.owner);
   const customer = await ensureCustomer(em, roles.customer);
