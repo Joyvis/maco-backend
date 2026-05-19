@@ -46,8 +46,20 @@ export class CommerceController {
     data: SaleOrderResponseDto[];
     meta: { total: number; page: number; page_size: number };
   }> {
-    const customerId = query.customer_id === 'me' || !query.customer_id ? user.id : user.id;
-    return this.commerceService.listMyOrders(user.tenantId, customerId, query);
+    const STAFF_ROLES = ['owner', 'ta'];
+    const isStaff = user.roles.some((r) => STAFF_ROLES.includes(r));
+    // Staff (owner/ta) get tenant-wide listing by default; customers stay
+    // scoped to their own orders. Either side can force the own-orders view
+    // with `customer_id=me`.
+    let customerId: string | null;
+    if (query.customer_id === 'me') {
+      customerId = user.id;
+    } else if (isStaff) {
+      customerId = null;
+    } else {
+      customerId = user.id;
+    }
+    return this.commerceService.listOrders(user.tenantId, customerId, query);
   }
 
   @Get('sale-orders/agenda')
@@ -66,7 +78,7 @@ export class CommerceController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: RequestUser,
   ): Promise<{ data: SaleOrderResponseDto }> {
-    const data = await this.commerceService.getOrder(user.tenantId, user.id, id);
+    const data = await this.commerceService.getOrder(user.tenantId, user.id, id, user.roles);
     return { data };
   }
 
@@ -77,7 +89,7 @@ export class CommerceController {
     @Body() dto: CancelOrderDto,
     @CurrentUser() user: RequestUser,
   ): Promise<{ data: SaleOrderResponseDto }> {
-    const data = await this.commerceService.cancelOrder(user.tenantId, user.id, id, dto);
+    const data = await this.commerceService.cancelOrder(user.tenantId, user.id, id, dto, user.roles);
     return { data };
   }
 
@@ -88,7 +100,7 @@ export class CommerceController {
     @Body() dto: RescheduleOrderDto,
     @CurrentUser() user: RequestUser,
   ): Promise<{ data: SaleOrderResponseDto }> {
-    const data = await this.commerceService.rescheduleOrder(user.tenantId, user.id, id, dto);
+    const data = await this.commerceService.rescheduleOrder(user.tenantId, user.id, id, dto, user.roles);
     return { data };
   }
 
@@ -147,6 +159,44 @@ export class CommerceController {
     @CurrentUser() user: RequestUser,
   ): Promise<{ data: SaleOrderResponseDto }> {
     const data = await this.commerceService.noShow(user.tenantId, user.id, id);
+    return { data };
+  }
+
+  @Post('sale-orders/:id/items')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'ta')
+  async addItem(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body()
+    dto: {
+      item_id?: string;
+      catalog_item_id?: string;
+      item_type?: string;
+      catalog_item_type?: string;
+      quantity?: number;
+      is_original_booking?: boolean;
+    },
+    @CurrentUser() user: RequestUser,
+  ): Promise<{ data: SaleOrderResponseDto }> {
+    const data = await this.commerceService.addItemToOrder(user.tenantId, id, dto);
+    return { data };
+  }
+
+  @Post('sale-orders/:id/pay')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'ta')
+  async pay(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: { payment_method: string },
+    @CurrentUser() user: RequestUser,
+  ): Promise<{ data: SaleOrderResponseDto }> {
+    const data = await this.commerceService.payOrder(
+      user.tenantId,
+      id,
+      dto.payment_method,
+    );
     return { data };
   }
 

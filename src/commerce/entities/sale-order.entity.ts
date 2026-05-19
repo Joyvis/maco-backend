@@ -28,6 +28,13 @@ export enum SaleOrderFulfillment {
   PICKUP = 'pickup',
 }
 
+export enum SaleOrderPaymentMethod {
+  PIX = 'pix',
+  CREDIT = 'credit',
+  DEBIT = 'debit',
+  CASH = 'cash',
+}
+
 export const ACTIVE_BOOKING_STATES = [
   SaleOrderState.PENDING_PAYMENT,
   SaleOrderState.PENDING_CHECKOUT,
@@ -90,6 +97,9 @@ export class SaleOrder extends TenantScopedEntity {
   no_show_at?: Date;
   @Property({ type: 'varchar', length: 16, nullable: true })
   booking_channel?: BookingChannel;
+
+  @Property({ type: 'varchar', length: 16, nullable: true })
+  payment_method?: SaleOrderPaymentMethod;
 
   @Property({ type: 'text', nullable: true })
   notes?: string;

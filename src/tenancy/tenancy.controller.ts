@@ -8,6 +8,7 @@ import {
   HttpStatus,
   NotFoundException,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
@@ -20,6 +21,7 @@ import { CreateUserCommand } from './commands/create-user.command';
 import { AdminCreateTenantDto } from './dto/admin-create-tenant.dto';
 import { CreateUserResponseDto } from './dto/create-user-response.dto';
 import { CreateUserDto } from './dto/create-user.dto';
+import { ListUsersQueryDto, ListUsersResponseDto } from './dto/list-users-query.dto';
 import { SignUpResponseDto } from './dto/sign-up-response.dto';
 import { UserMeDto } from './dto/user-me.dto';
 import { User } from './entities/user.entity';
@@ -40,9 +42,20 @@ export class TenancyController {
 export class UsersController {
   constructor(
     private readonly commandBus: CommandBus,
+    private readonly tenancyService: TenancyService,
     @InjectRepository(User)
     private readonly userRepo: EntityRepository<User>,
   ) {}
+
+  @Get()
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'ta')
+  listUsers(
+    @Query() query: ListUsersQueryDto,
+    @CurrentUser() currentUser: RequestUser,
+  ): Promise<ListUsersResponseDto> {
+    return this.tenancyService.listUsers(currentUser.tenantId, query);
+  }
 
   @Get('me')
   async me(@CurrentUser() currentUser: RequestUser): Promise<UserMeDto> {

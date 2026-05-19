@@ -44,10 +44,14 @@ import {
   ACTIVE_BOOKING_STATES,
   SaleOrder,
   SaleOrderFulfillment,
+  SaleOrderPaymentMethod,
   SaleOrderState,
 } from './entities/sale-order.entity';
 
 const noTenantFilter = () => ({ filters: { tenant: false } });
+
+const STAFF_ROLES = ['owner', 'ta'] as const;
+const isStaff = (roles?: string[]) => Boolean(roles?.some((r) => (STAFF_ROLES as readonly string[]).includes(r)));
 
 interface ResolvedServiceLine {
   kind: 'service';
@@ -189,6 +193,8 @@ export class CommerceService {
           id: order.id,
           requires_payment: requiresPayment,
           payment_url: order.payment_url,
+          scheduled_start_at: order.scheduled_at?.toISOString() ?? null,
+          scheduled_end_at: order.scheduled_end_at?.toISOString() ?? null,
           booking_channel: order.booking_channel ?? null,
           notes: order.notes ?? null,
         };
@@ -201,9 +207,9 @@ export class CommerceService {
     }
   }
 
-  async listMyOrders(
+  async listOrders(
     tenantId: string,
-    customerId: string,
+    customerId: string | null,
     query: ListOrdersQueryDto,
   ): Promise<{
     data: SaleOrderResponseDto[];
@@ -212,22 +218,37 @@ export class CommerceService {
     const page = query.page ?? 1;
     const page_size = query.page_size ?? 50;
 
-    const where: Record<string, unknown> = { tenant_id: tenantId, customer: customerId };
-    if (query.state) {
-      const states = query.state
+    const where: Record<string, unknown> = { tenant_id: tenantId };
+    if (customerId !== null) {
+      where.customer = customerId;
+    }
+
+    const stateInput = query.states ?? query.state;
+    if (stateInput) {
+      const stateList = stateInput
         .split(',')
         .map((s) => s.trim())
         .filter((s): s is SaleOrderState =>
           (Object.values(SaleOrderState) as string[]).includes(s),
         );
-      if (states.length > 0) where.state = { $in: states };
+      if (stateList.length > 0) where.state = { $in: stateList };
+    }
+
+    if (query.date) {
+      const dayStart = new Date(`${query.date}T00:00:00.000Z`);
+      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+      where.scheduled_at = { $gte: dayStart, $lt: dayEnd };
+    }
+
+    if (query.staff_id) {
+      where.staff = query.staff_id;
     }
 
     const [items, total] = await this.em.findAndCount(SaleOrder, where, {
-      orderBy: { created_at: 'desc' },
+      orderBy: { scheduled_at: 'asc', created_at: 'desc' },
       limit: page_size,
       offset: (page - 1) * page_size,
-      populate: ['service', 'staff'],
+      populate: ['customer', 'service', 'staff', 'items.service', 'items.product'],
       ...noTenantFilter(),
     });
 
@@ -237,18 +258,31 @@ export class CommerceService {
     };
   }
 
+  // Backward-compatible alias used by existing callers/tests.
+  async listMyOrders(
+    tenantId: string,
+    customerId: string,
+    query: ListOrdersQueryDto,
+  ): Promise<{
+    data: SaleOrderResponseDto[];
+    meta: { total: number; page: number; page_size: number };
+  }> {
+    return this.listOrders(tenantId, customerId, query);
+  }
+
   async getOrder(
     tenantId: string,
     customerId: string,
     orderId: string,
+    callerRoles?: string[],
   ): Promise<SaleOrderResponseDto> {
     const order = await this.em.findOne(
       SaleOrder,
       { id: orderId, tenant_id: tenantId },
-      { populate: ['service', 'staff'], ...noTenantFilter() },
+      { populate: ['customer', 'service', 'staff', 'items.service', 'items.product'], ...noTenantFilter() },
     );
     if (!order) throw new NotFoundException('Order not found');
-    if (order.customer.id !== customerId) {
+    if (order.customer.id !== customerId && !isStaff(callerRoles)) {
       throw new ForbiddenException('Access denied');
     }
     return this.toOrderDto(order);
@@ -259,14 +293,15 @@ export class CommerceService {
     customerId: string,
     orderId: string,
     dto: CancelOrderDto,
+    callerRoles?: string[],
   ): Promise<SaleOrderResponseDto> {
     const order = await this.em.findOne(
       SaleOrder,
       { id: orderId, tenant_id: tenantId },
-      { populate: ['service', 'staff'], ...noTenantFilter() },
+      { populate: ['customer', 'service', 'staff', 'items.service', 'items.product'], ...noTenantFilter() },
     );
     if (!order) throw new NotFoundException('Order not found');
-    if (order.customer.id !== customerId) {
+    if (order.customer.id !== customerId && !isStaff(callerRoles)) {
       throw new ForbiddenException("Cannot cancel another user's order");
     }
     if (
@@ -288,6 +323,7 @@ export class CommerceService {
     customerId: string,
     orderId: string,
     dto: RescheduleOrderDto,
+    callerRoles?: string[],
   ): Promise<SaleOrderResponseDto> {
     const newStart = new Date(dto.new_datetime);
     if (Number.isNaN(newStart.getTime())) {
@@ -297,10 +333,10 @@ export class CommerceService {
     const order = await this.em.findOne(
       SaleOrder,
       { id: orderId, tenant_id: tenantId },
-      { populate: ['service', 'staff'], ...noTenantFilter() },
+      { populate: ['customer', 'service', 'staff', 'items.service', 'items.product'], ...noTenantFilter() },
     );
     if (!order) throw new NotFoundException('Order not found');
-    if (order.customer.id !== customerId) {
+    if (order.customer.id !== customerId && !isStaff(callerRoles)) {
       throw new ForbiddenException("Cannot reschedule another user's order");
     }
     if (order.fulfillment !== SaleOrderFulfillment.APPOINTMENT) {
@@ -340,7 +376,7 @@ export class CommerceService {
     const order = await this.em.findOne(
       SaleOrder,
       { id: orderId, tenant_id: tenantId },
-      { populate: ['service', 'staff'], ...noTenantFilter() },
+      { populate: ['customer', 'service', 'staff', 'items.service', 'items.product'], ...noTenantFilter() },
     );
     if (!order) throw new NotFoundException('Order not found');
     if (order.customer.id !== customerId) {
@@ -362,7 +398,7 @@ export class CommerceService {
     const order = await this.em.findOne(
       SaleOrder,
       { id: orderId, tenant_id: tenantId },
-      { populate: ['service', 'staff'], ...noTenantFilter() },
+      { populate: ['customer', 'service', 'staff', 'items.service', 'items.product'], ...noTenantFilter() },
     );
     if (!order) throw new NotFoundException('Order not found');
     this.assertTransition(order, SaleOrderState.CONFIRMED, SaleOrderState.CHECKED_IN);
@@ -376,7 +412,7 @@ export class CommerceService {
     const order = await this.em.findOne(
       SaleOrder,
       { id: orderId, tenant_id: tenantId },
-      { populate: ['service', 'staff'], ...noTenantFilter() },
+      { populate: ['customer', 'service', 'staff', 'items.service', 'items.product'], ...noTenantFilter() },
     );
     if (!order) throw new NotFoundException('Order not found');
     this.assertTransition(order, SaleOrderState.CHECKED_IN, SaleOrderState.IN_PROGRESS);
@@ -394,7 +430,7 @@ export class CommerceService {
     const order = await this.em.findOne(
       SaleOrder,
       { id: orderId, tenant_id: tenantId },
-      { populate: ['service', 'staff'], ...noTenantFilter() },
+      { populate: ['customer', 'service', 'staff', 'items.service', 'items.product'], ...noTenantFilter() },
     );
     if (!order) throw new NotFoundException('Order not found');
     this.assertTransition(order, SaleOrderState.IN_PROGRESS, SaleOrderState.PENDING_CHECKOUT);
@@ -408,7 +444,7 @@ export class CommerceService {
     const order = await this.em.findOne(
       SaleOrder,
       { id: orderId, tenant_id: tenantId },
-      { populate: ['service', 'staff'], ...noTenantFilter() },
+      { populate: ['customer', 'service', 'staff', 'items.service', 'items.product'], ...noTenantFilter() },
     );
     if (!order) throw new NotFoundException('Order not found');
     this.assertTransition(order, SaleOrderState.CONFIRMED, SaleOrderState.NO_SHOW);
@@ -934,19 +970,162 @@ export class CommerceService {
   }
 
   private toOrderDto(o: SaleOrder): SaleOrderResponseDto {
+    const items = o.items.isInitialized()
+      ? o.items.getItems().map((i) => ({
+          id: i.id,
+          type: i.catalog_item_type as 'service' | 'product' | 'combo',
+          name:
+            i.name_snapshot ??
+            i.service?.name ??
+            i.product?.name ??
+            i.combo?.name ??
+            '',
+          price: Number(i.price),
+          quantity: i.quantity,
+        }))
+      : undefined;
+
+    const customerLoaded = (o.customer as unknown as { isInitialized?: () => boolean } | undefined)
+      ?.isInitialized
+      ? (o.customer as unknown as { isInitialized: () => boolean }).isInitialized()
+      : true;
+
     return {
       id: o.id,
       state: o.state,
       fulfillment: o.fulfillment === SaleOrderFulfillment.APPOINTMENT ? 'appointment' : 'pickup',
       scheduled_at: o.scheduled_at?.toISOString(),
+      scheduled_start_at: o.scheduled_at?.toISOString(),
+      scheduled_end_at: o.scheduled_end_at?.toISOString(),
       service_name: o.service?.name,
+      service_price: o.service ? Number(o.service.base_price) : undefined,
       professional_name: o.staff?.full_name,
+      staff_name: o.staff?.full_name,
+      staff_id: o.staff?.id,
+      customer_id: customerLoaded ? o.customer.id : undefined,
+      customer_name: customerLoaded ? o.customer.full_name : undefined,
+      customer_phone: customerLoaded ? (o.customer.phone ?? undefined) : undefined,
+      customer_email: customerLoaded ? o.customer.email : undefined,
       total_amount: Number(o.total_amount),
+      prepayment_required: o.requires_payment,
       picked_up_at: o.picked_up_at?.toISOString(),
+      checked_in_at: o.checked_in_at?.toISOString(),
+      started_at: o.started_at?.toISOString(),
+      completed_at: o.completed_service_at?.toISOString(),
+      no_show_at: o.no_show_at?.toISOString(),
+      cancelled_at: o.cancelled_at?.toISOString(),
+      order_number: o.id.slice(0, 8).toUpperCase(),
+      items,
       booking_channel: o.booking_channel ?? null,
+      payment_method: o.payment_method,
       notes: o.notes ?? null,
       created_at: o.created_at.toISOString(),
     };
+  }
+
+  async addItemToOrder(
+    tenantId: string,
+    orderId: string,
+    dto: { item_id?: string; catalog_item_id?: string; item_type?: string; catalog_item_type?: string; quantity?: number; is_original_booking?: boolean },
+  ): Promise<SaleOrderResponseDto> {
+    const itemId = dto.catalog_item_id ?? dto.item_id;
+    const itemType = (dto.catalog_item_type ?? dto.item_type) as 'service' | 'product' | undefined;
+    const quantity = dto.quantity ?? 1;
+
+    if (!itemId || !itemType) {
+      throw new BadRequestException('item_id and item_type are required');
+    }
+    if (itemType !== 'service' && itemType !== 'product') {
+      throw new BadRequestException('item_type must be service or product');
+    }
+
+    return this.em.transactional(async (em) => {
+      const order = await em.findOne(
+        SaleOrder,
+        { id: orderId, tenant_id: tenantId },
+        { populate: ['customer', 'service', 'staff', 'items.service', 'items.product'], ...noTenantFilter() },
+      );
+      if (!order) throw new NotFoundException('Order not found');
+
+      let nameSnapshot = '';
+      let unitPrice = 0;
+
+      if (itemType === 'service') {
+        const service = await em.findOne(
+          Service,
+          { id: itemId, tenant_id: tenantId },
+          noTenantFilter(),
+        );
+        if (!service) throw new NotFoundException('Service not found');
+        nameSnapshot = service.name;
+        unitPrice = Number(service.base_price);
+      } else {
+        const product = await em.findOne(
+          Product,
+          { id: itemId, tenant_id: tenantId },
+          noTenantFilter(),
+        );
+        if (!product) throw new NotFoundException('Product not found');
+        nameSnapshot = product.name;
+        unitPrice = Number(product.base_price);
+      }
+
+      const item = new SaleOrderItem();
+      item.tenant_id = tenantId;
+      item.sale_order = order;
+      item.catalog_item_type =
+        itemType === 'service' ? SaleOrderItemType.SERVICE : SaleOrderItemType.PRODUCT;
+      item.catalog_item_id = itemId;
+      if (itemType === 'service') {
+        item.service = em.getReference(Service, itemId);
+      } else {
+        item.product = em.getReference(Product, itemId);
+      }
+      item.quantity = quantity;
+      item.price = (unitPrice * quantity).toFixed(2);
+      item.name_snapshot = nameSnapshot;
+      item.is_dependency = false;
+      em.persist(item);
+
+      const newTotal = Number(order.total_amount) + unitPrice * quantity;
+      order.total_amount = newTotal.toFixed(2);
+
+      await em.flush();
+      return this.toOrderDto(order);
+    });
+  }
+
+  async payOrder(
+    tenantId: string,
+    orderId: string,
+    paymentMethod: string,
+  ): Promise<SaleOrderResponseDto> {
+    const method = paymentMethod as SaleOrderPaymentMethod;
+    if (!Object.values(SaleOrderPaymentMethod).includes(method)) {
+      throw new BadRequestException('Invalid payment_method');
+    }
+
+    const order = await this.em.findOne(
+      SaleOrder,
+      { id: orderId, tenant_id: tenantId },
+      { populate: ['customer', 'service', 'staff', 'items.service', 'items.product'], ...noTenantFilter() },
+    );
+    if (!order) throw new NotFoundException('Order not found');
+
+    if (
+      order.state !== SaleOrderState.PENDING_CHECKOUT &&
+      order.state !== SaleOrderState.CONFIRMED &&
+      order.state !== SaleOrderState.IN_PROGRESS
+    ) {
+      throw new BadRequestException(
+        `Cannot mark order paid from state ${order.state}`,
+      );
+    }
+
+    order.state = SaleOrderState.COMPLETED;
+    order.payment_method = method;
+    await this.em.flush();
+    return this.toOrderDto(order);
   }
 }
 
