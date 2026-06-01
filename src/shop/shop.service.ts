@@ -29,11 +29,22 @@ export class ShopService {
     const tenant = await this.em.findOne(Tenant, { slug }, { filters: false });
     if (!tenant) throw new NotFoundException('Shop not found');
 
-    const services = await this.em.find(
+    const allServices = await this.em.find(
       Service,
       { tenant_id: tenant.id, status: ServiceStatus.ACTIVE },
       { populate: ['category'], orderBy: { name: 'asc' }, ...noTenantFilter() },
     );
+
+    // Customer-facing rule: hide services without any qualified staff so they
+    // can't be booked from the shop. The catalog-management view keeps showing
+    // these — admins need to qualify staff before the service becomes bookable.
+    const bookableRows = (await this.em
+      .getConnection()
+      .execute('select distinct service_id from staff_qualifications where tenant_id = ?', [
+        tenant.id,
+      ])) as Array<{ service_id: string }>;
+    const bookableServiceIds = new Set(bookableRows.map((r) => r.service_id));
+    const services = allServices.filter((s) => bookableServiceIds.has(s.id));
 
     const products = await this.em.find(
       Product,
@@ -91,7 +102,7 @@ export class ShopService {
 
       staff = staffUsers.map<ShopStaffDto>((u) => ({
         user_id: u.id,
-        name: u.full_name,
+        name: u.full_name ?? '',
         qualified_services: qualByUser.get(u.id) ?? [],
       }));
     }

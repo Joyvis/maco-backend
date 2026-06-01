@@ -1024,7 +1024,7 @@ function toAppointmentDto(order: SaleOrder): AgendaAppointmentDto {
 
   return {
     id: order.id,
-    customer_name: order.customer.full_name,
+    customer_name: order.customer.full_name ?? order.customer.phone ?? 'Cliente',
     customer_phone: order.customer.phone ?? null,
     customer_email: order.customer.email,
     services: serviceNames,

@@ -40,7 +40,14 @@ const ID = {
   ROLE_OWNER: '01900000-0000-7000-8000-000000000030',
   ROLE_STAFF: '01900000-0000-7000-8000-000000000031',
   ROLE_CUSTOMER: '01900000-0000-7000-8000-000000000032',
+  ROLE_TA: '01900000-0000-7000-8000-000000000034',
   OWNER: '01900000-0000-7000-8000-000000000033',
+  // Receptionist/atendente (TA) is a distinct persona from the seeded
+  // professionals (STAFF_ANA et al). The backend's RolesGuard requires
+  // 'owner' or 'ta' for /sale-orders and related TA flows — Ana is a
+  // stylist (role 'staff') and would be blocked. Keep this user separate
+  // so admin permissions stay scoped to the receptionist persona.
+  TA_USER: '01900000-0000-7000-8000-000000000043',
   STAFF_ANA: '01900000-0000-7000-8000-000000000040',
   STAFF_BRUNO: '01900000-0000-7000-8000-000000000041',
   STAFF_CARLA: '01900000-0000-7000-8000-000000000042',
@@ -141,17 +148,19 @@ async function ensureBranding(em: EntityManager, tenant: Tenant): Promise<void> 
 export async function ensureTenantRoles(
   em: EntityManager,
   tenantId: string,
-  ids: { owner: string; staff: string; customer: string },
+  ids: { owner: string; staff: string; customer: string; ta: string },
 ): Promise<{
   owner: Role;
   staff: Role;
   customer: Role;
+  ta: Role;
 }> {
   const roles: Record<string, Role> = {};
   const want = [
     { id: ids.owner, name: 'owner' },
     { id: ids.staff, name: 'staff' },
     { id: ids.customer, name: 'customer' },
+    { id: ids.ta, name: 'ta' },
   ];
   for (const r of want) {
     let role = await em.findOne(Role, { tenant_id: tenantId, name: r.name }, { filters: false });
@@ -167,7 +176,12 @@ export async function ensureTenantRoles(
     roles[r.name] = role;
   }
   await em.flush();
-  return { owner: roles.owner, staff: roles.staff, customer: roles.customer };
+  return {
+    owner: roles.owner,
+    staff: roles.staff,
+    customer: roles.customer,
+    ta: roles.ta,
+  };
 }
 
 async function ensureCategory(em: EntityManager): Promise<Category> {
@@ -399,6 +413,40 @@ async function ensureOwner(em: EntityManager, ownerRole: Role): Promise<User> {
   );
   if (!link) {
     em.persist(em.create(UserRole, { user, role: ownerRole }));
+    await em.flush();
+  }
+  return user;
+}
+
+// Seeds the receptionist / atendente persona — used by the TA e2e fixture and
+// any developer who wants to exercise the /recepcao flows manually. Separate
+// from `ensureOwner` so the owner role keeps its tenant-admin scope and from
+// `ensureStaff` so the stylists keep their narrower professional scope.
+async function ensureTaUser(em: EntityManager, taRole: Role): Promise<User> {
+  const email = 'ta@salao-demo.test';
+  let user = await em.findOne(User, { id: ID.TA_USER }, { filters: false });
+  if (!user) {
+    user = await em.findOne(User, { tenant_id: ID.TENANT, email }, { filters: false });
+  }
+  if (!user) {
+    const passwordHash = await bcrypt.hash('demo1234', 10);
+    user = em.create(User, {
+      id: ID.TA_USER,
+      tenant_id: ID.TENANT,
+      email,
+      password_hash: passwordHash,
+      full_name: 'Tati Atendente',
+      state: UserState.ACTIVE,
+    });
+    await em.persistAndFlush(user);
+  }
+  const link = await em.findOne(
+    UserRole,
+    { user: user.id, role: taRole.id },
+    { filters: false },
+  );
+  if (!link) {
+    em.persist(em.create(UserRole, { user, role: taRole }));
     await em.flush();
   }
   return user;
@@ -636,7 +684,8 @@ export interface DemoSeedHandles {
   category: Category;
   services: Map<string, Service>;
   staff: Map<string, User>;
-  roles: { owner: Role; staff: Role; customer: Role };
+  ta: User;
+  roles: { owner: Role; staff: Role; customer: Role; ta: Role };
   customer: User;
 }
 
@@ -647,6 +696,7 @@ export async function runDemoSeed(em: EntityManager): Promise<DemoSeedHandles> {
     owner: ID.ROLE_OWNER,
     staff: ID.ROLE_STAFF,
     customer: ID.ROLE_CUSTOMER,
+    ta: ID.ROLE_TA,
   });
   const category = await ensureCategory(em);
   const services = await ensureServices(em, category);
@@ -656,11 +706,12 @@ export async function runDemoSeed(em: EntityManager): Promise<DemoSeedHandles> {
   const staff = await ensureStaff(em, roles.staff, services);
   await ensureWorkingHours(em, staff);
   await ensureOwner(em, roles.owner);
+  const ta = await ensureTaUser(em, roles.ta);
   const customer = await ensureCustomer(em, roles.customer);
   await ensureRefundPolicies(em);
   await ensureSeedOrders(em, customer, services, staff);
 
-  return { tenant, category, services, staff, roles, customer };
+  return { tenant, category, services, staff, ta, roles, customer };
 }
 
 export const DEMO_SHOP_SLUG = SHOP_SLUG;
@@ -676,6 +727,7 @@ async function run(): Promise<void> {
     console.log(`  tenant_id:   ${tenant.id}`);
     console.log(`  shop slug:   ${SHOP_SLUG}`);
     console.log(`  owner:       owner@salao-demo.test / demo1234`);
+    console.log(`  ta:          ta@salao-demo.test / demo1234`);
     console.log(`  customer:    customer@demo.test / demo1234`);
     console.log(`\nOpen in browser:`);
     console.log(`  http://localhost:3000/shop/${SHOP_SLUG}\n`);

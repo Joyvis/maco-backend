@@ -5,7 +5,10 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 
+import { MagicLinkAttempt } from '../entities/magic-link-attempt.entity';
+import { MagicLinkRateLimit } from '../entities/magic-link-rate-limit.entity';
 import { RefreshToken } from '../entities/refresh-token.entity';
+import { Role } from '../entities/role.entity';
 import { Tenant } from '../entities/tenant.entity';
 import { UserRole } from '../entities/user-role.entity';
 import { User } from '../entities/user.entity';
@@ -20,7 +23,7 @@ import { JwtStrategy } from './jwt.strategy';
     CqrsModule,
     PassportModule,
     JwtModule.register({}),
-    MikroOrmModule.forFeature([User, UserRole, RefreshToken, Tenant]),
+    MikroOrmModule.forFeature([User, UserRole, RefreshToken, Tenant, MagicLinkAttempt, MagicLinkRateLimit, Role]),
   ],
   controllers: [AuthController],
   providers: [

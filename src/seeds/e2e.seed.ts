@@ -26,6 +26,7 @@ const ID = {
   ACME_ROLE_OWNER: '01900000-0000-7000-8000-0000000000ba',
   ACME_ROLE_STAFF: '01900000-0000-7000-8000-0000000000bb',
   ACME_ROLE_CUSTOMER: '01900000-0000-7000-8000-0000000000bc',
+  ACME_ROLE_TA: '01900000-0000-7000-8000-0000000000bd',
   ACME_OWNER: '01900000-0000-7000-8000-0000000000b1',
 };
 
@@ -147,6 +148,7 @@ async function run(): Promise<void> {
       owner: ID.ACME_ROLE_OWNER,
       staff: ID.ACME_ROLE_STAFF,
       customer: ID.ACME_ROLE_CUSTOMER,
+      ta: ID.ACME_ROLE_TA,
     });
     await ensureAcmeOwner(em, acmeRoles.owner);
 
@@ -155,6 +157,7 @@ async function run(): Promise<void> {
     console.log(`    tenant_id:  ${demo.tenant.id}`);
     console.log(`    shop slug:  ${demo.tenant.slug}`);
     console.log(`    owner:      owner@salao-demo.test / demo1234`);
+    console.log(`    ta:         ta@salao-demo.test / demo1234`);
     console.log(`    customer:   customer@demo.test / demo1234`);
     console.log(`    auto-fail:  "${AUTO_FAIL_NAME}" @ R$ ${AUTO_FAIL_PRICE}`);
     console.log('  ACME tenant:');

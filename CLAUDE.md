@@ -234,3 +234,18 @@ The `shop/` module is the unauthenticated, slug-addressed public surface. It com
 - Authenticated equivalents (`/availability`, `/services/:id/qualified-staff`) live on `SchedulingController`
 
 `Tenant` was extended with public-facing fields: `slug`, `logo_url`, `city`, `state`, `address_line1`, `address_line2`, `postal_code`, `latitude`, `longitude`, `rating`.
+
+## Customer phone-login (MACO-XXX)
+
+Customers authenticate without a password via SMS-style magic link. Mirrors the payments-provider abstraction.
+
+- **Schema**: `users.auth_method varchar(16) NOT NULL DEFAULT 'password'` (`password`|`phone`). `password_hash` and `full_name` are nullable, but CHECK constraints (`users_password_required_for_password_auth`, `users_full_name_required_for_password_auth`) only allow null when `auth_method='phone'`. Staff TA/PA can't be saved without password + name.
+- **Tables**: `magic_link_attempts` (token, sha-256 hash, expires_at, consumed_at) and `magic_link_rate_limits` (composite PK on `tenant_id+phone_e164`, sliding 10-min window, max 3 attempts).
+- **Endpoints** (both `@Public()`):
+  - `POST /auth/phone/start { tenant_slug, phone }` — anti-enumeration; **always returns 200 `{ status: 'ok' }`** even if tenant doesn't exist or rate-limited.
+  - `POST /auth/phone/verify { token }` — single-use; lazy-creates the customer with `auth_method='phone'`, role `customer`, synthesized email `+E164@phone.local` (preserves the unique `(tenant_id, email)` constraint as a phone-uniqueness proxy).
+- **`MessagingModule.register()`** (`src/messaging/`) — `DynamicModule` reads `MESSAGE_PROVIDER` env (`mock` default, `twilio` stub). When `MESSAGE_PROVIDER=mock AND NODE_ENV=test`, mounts `GET /_test/last-magic-link?tenant_slug=&phone=` for e2e tests. Pattern mirrors `PaymentsModule`.
+- **`PATCH /users/me`** — customer profile-complete endpoint; updates `full_name` / `email`. Phone is read-only (it's the auth identifier).
+- **Phone normalization** (`src/shared/phone.ts`): `(11) 91212-3434`, `+5511912123434`, etc. → E.164 `+5511912123434`. Rejects landlines (no leading 9 after DDD).
+- **Customer-path null tolerance**: `commerce.service.ts:toAppointmentDto` and `tenancy.controller.ts:listUsers` use `full_name ?? phone ?? 'Cliente'` fallbacks. `UserMeDto.name` and `UserMeDto.phone` are nullable.
+

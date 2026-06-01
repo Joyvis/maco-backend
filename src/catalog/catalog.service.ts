@@ -262,6 +262,22 @@ export class CatalogService {
     const where: Record<string, unknown> = { tenant_id: tenantId };
     if (query.status) where.status = query.status;
     if (query.category) where.category = query.category;
+    if (query.bookable === true) {
+      const rows = (await this.em
+        .getConnection()
+        .execute(
+          'select distinct service_id from staff_qualifications where tenant_id = ?',
+          [tenantId],
+        )) as Array<{ service_id: string }>;
+      const bookableIds = rows.map((r) => r.service_id);
+      if (bookableIds.length === 0) {
+        return {
+          data: [],
+          meta: { total: 0, page, page_size, total_pages: 1 },
+        };
+      }
+      where.id = { $in: bookableIds };
+    }
 
     const [items, total] = await this.serviceRepo.findAndCount(where, {
       orderBy: { created_at: 'desc' },

@@ -985,6 +985,562 @@
           "enumItems": [],
           "mappedType": "uuid"
         },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "now()",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "phone_e164": {
+          "name": "phone_e164",
+          "type": "varchar(20)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 20,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "token": {
+          "name": "token",
+          "type": "varchar(64)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 64,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "varchar(128)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 128,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "consumed_at": {
+          "name": "consumed_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        }
+      },
+      "name": "magic_link_attempts",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "magic_link_attempts_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "tenant_id",
+            "phone_e164"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "magic_link_attempts_tenant_phone_idx",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "token_hash"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "magic_link_attempts_token_hash_idx",
+          "unique": false,
+          "primary": false
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {},
+      "nativeEnums": {
+        "account_type": {
+          "name": "account_type",
+          "schema": "public",
+          "items": [
+            "platform",
+            "wlc",
+            "standard"
+          ]
+        },
+        "combo_item_type": {
+          "name": "combo_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product"
+          ]
+        },
+        "combo_status": {
+          "name": "combo_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "archived"
+          ]
+        },
+        "payment_provider_name": {
+          "name": "payment_provider_name",
+          "schema": "public",
+          "items": [
+            "mock",
+            "stone"
+          ]
+        },
+        "payment_state": {
+          "name": "payment_state",
+          "schema": "public",
+          "items": [
+            "pending",
+            "succeeded",
+            "failed",
+            "expired",
+            "cancelled"
+          ]
+        },
+        "product_status": {
+          "name": "product_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "product_unit": {
+          "name": "product_unit",
+          "schema": "public",
+          "items": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
+          ]
+        },
+        "sale_order_fulfillment": {
+          "name": "sale_order_fulfillment",
+          "schema": "public",
+          "items": [
+            "appointment",
+            "pickup"
+          ]
+        },
+        "sale_order_item_type": {
+          "name": "sale_order_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product",
+            "combo"
+          ]
+        },
+        "sale_order_state": {
+          "name": "sale_order_state",
+          "schema": "public",
+          "items": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
+          ]
+        },
+        "service_status": {
+          "name": "service_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "schema": "public",
+          "items": [
+            "free_trial",
+            "paid"
+          ]
+        },
+        "tenant_status": {
+          "name": "tenant_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ]
+        },
+        "user_state": {
+          "name": "user_state",
+          "schema": "public",
+          "items": [
+            "active",
+            "inactive",
+            "suspended"
+          ]
+        }
+      },
+      "comment": null
+    },
+    {
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "phone_e164": {
+          "name": "phone_e164",
+          "type": "varchar(20)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": 20,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "window_started_at": {
+          "name": "window_started_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "attempt_count": {
+          "name": "attempt_count",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        }
+      },
+      "name": "magic_link_rate_limits",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "tenant_id",
+            "phone_e164"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "magic_link_rate_limits_pkey",
+          "unique": true,
+          "primary": true
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {},
+      "nativeEnums": {
+        "account_type": {
+          "name": "account_type",
+          "schema": "public",
+          "items": [
+            "platform",
+            "wlc",
+            "standard"
+          ]
+        },
+        "combo_item_type": {
+          "name": "combo_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product"
+          ]
+        },
+        "combo_status": {
+          "name": "combo_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "archived"
+          ]
+        },
+        "payment_provider_name": {
+          "name": "payment_provider_name",
+          "schema": "public",
+          "items": [
+            "mock",
+            "stone"
+          ]
+        },
+        "payment_state": {
+          "name": "payment_state",
+          "schema": "public",
+          "items": [
+            "pending",
+            "succeeded",
+            "failed",
+            "expired",
+            "cancelled"
+          ]
+        },
+        "product_status": {
+          "name": "product_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "product_unit": {
+          "name": "product_unit",
+          "schema": "public",
+          "items": [
+            "ml",
+            "g",
+            "unit",
+            "kg",
+            "l"
+          ]
+        },
+        "sale_order_fulfillment": {
+          "name": "sale_order_fulfillment",
+          "schema": "public",
+          "items": [
+            "appointment",
+            "pickup"
+          ]
+        },
+        "sale_order_item_type": {
+          "name": "sale_order_item_type",
+          "schema": "public",
+          "items": [
+            "service",
+            "product",
+            "combo"
+          ]
+        },
+        "sale_order_state": {
+          "name": "sale_order_state",
+          "schema": "public",
+          "items": [
+            "pending_payment",
+            "pending_checkout",
+            "confirmed",
+            "checked_in",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "no_show"
+          ]
+        },
+        "service_status": {
+          "name": "service_status",
+          "schema": "public",
+          "items": [
+            "draft",
+            "active",
+            "archived"
+          ]
+        },
+        "subscription_type": {
+          "name": "subscription_type",
+          "schema": "public",
+          "items": [
+            "free_trial",
+            "paid"
+          ]
+        },
+        "tenant_status": {
+          "name": "tenant_status",
+          "schema": "public",
+          "items": [
+            "active",
+            "trial",
+            "suspended",
+            "cancelled",
+            "pending_payment"
+          ]
+        },
+        "user_state": {
+          "name": "user_state",
+          "schema": "public",
+          "items": [
+            "active",
+            "inactive",
+            "suspended"
+          ]
+        }
+      },
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
         "tenant_id": {
           "name": "tenant_id",
           "type": "uuid",
@@ -2901,6 +3457,22 @@
           "comment": null,
           "enumItems": [],
           "mappedType": "json"
+        },
+        "name_snapshot": {
+          "name": "name_snapshot",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "text"
         }
       },
       "name": "sale_order_items",
@@ -3471,6 +4043,118 @@
           "comment": null,
           "enumItems": [],
           "mappedType": "datetime"
+        },
+        "checked_in_at": {
+          "name": "checked_in_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "completed_service_at": {
+          "name": "completed_service_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "no_show_at": {
+          "name": "no_show_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "booking_channel": {
+          "name": "booking_channel",
+          "type": "varchar(16)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 16,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "payment_method": {
+          "name": "payment_method",
+          "type": "varchar(16)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 16,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
         }
       },
       "name": "sale_orders",
@@ -4237,7 +4921,7 @@
       "checks": [
         {
           "name": "service_dependencies_no_self_check",
-          "columnName": "service_id",
+          "columnName": "depends_on_service_id",
           "definition": "CHECK ((service_id <> depends_on_service_id))",
           "expression": "service_id <> depends_on_service_id"
         }
@@ -6511,7 +7195,7 @@
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": false,
+          "nullable": true,
           "unique": false,
           "length": 255,
           "precision": null,
@@ -6527,7 +7211,7 @@
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": false,
+          "nullable": true,
           "unique": false,
           "length": 255,
           "precision": null,
@@ -6589,6 +7273,25 @@
           "comment": null,
           "enumItems": [],
           "mappedType": "datetime"
+        },
+        "auth_method": {
+          "name": "auth_method",
+          "type": "varchar(16)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 16,
+          "precision": null,
+          "scale": null,
+          "default": "'password'",
+          "comment": null,
+          "enumItems": [
+            "password",
+            "phone"
+          ],
+          "mappedType": "enum"
         }
       },
       "name": "users",
@@ -6616,7 +7319,20 @@
           "primary": false
         }
       ],
-      "checks": [],
+      "checks": [
+        {
+          "name": "users_full_name_required_for_password_auth",
+          "columnName": "auth_method",
+          "definition": "CHECK ((((auth_method)::text = 'phone'::text) OR (full_name IS NOT NULL)))",
+          "expression": "(auth_method = 'phone'::text) OR (full_name IS NOT NULL)"
+        },
+        {
+          "name": "users_password_required_for_password_auth",
+          "columnName": "password_hash",
+          "definition": "CHECK ((((auth_method)::text = 'phone'::text) OR (password_hash IS NOT NULL)))",
+          "expression": "(auth_method = 'phone'::text) OR (password_hash IS NOT NULL)"
+        }
+      ],
       "foreignKeys": {},
       "nativeEnums": {
         "account_type": {

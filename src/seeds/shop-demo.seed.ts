@@ -7,6 +7,7 @@ import config from '../../mikro-orm.config';
 import { Category } from '../catalog/entities/category.entity';
 import { Service, ServiceStatus } from '../catalog/entities/service.entity';
 import { Role } from '../tenancy/entities/role.entity';
+import { StaffQualification } from '../tenancy/entities/staff-qualification.entity';
 import { AccountType, Tenant } from '../tenancy/entities/tenant.entity';
 import { UserRole } from '../tenancy/entities/user-role.entity';
 import { User, UserState } from '../tenancy/entities/user.entity';
@@ -108,12 +109,18 @@ async function ensureCategory(em: EntityManager, tenantId: string): Promise<Cate
   return category;
 }
 
+interface EnsureServicesResult {
+  services: Service[];
+  created: number;
+}
+
 async function ensureServices(
   em: EntityManager,
   tenantId: string,
   category: Category,
-): Promise<number> {
+): Promise<EnsureServicesResult> {
   let created = 0;
+  const services: Service[] = [];
   for (const svc of DEMO_SERVICES) {
     const existing = await em.findOne(
       Service,
@@ -124,6 +131,7 @@ async function ensureServices(
       if (existing.status !== ServiceStatus.ACTIVE) {
         existing.status = ServiceStatus.ACTIVE;
       }
+      services.push(existing);
       continue;
     }
     const entity = em.create(Service, {
@@ -136,13 +144,23 @@ async function ensureServices(
       status: ServiceStatus.ACTIVE,
     });
     em.persist(entity);
+    services.push(entity);
     created++;
   }
   await em.flush();
-  return created;
+  return { services, created };
 }
 
-async function ensureStaff(em: EntityManager, tenantId: string): Promise<number> {
+interface EnsureStaffResult {
+  created: number;
+  qualified: number;
+}
+
+async function ensureStaff(
+  em: EntityManager,
+  tenantId: string,
+  services: Service[],
+): Promise<EnsureStaffResult> {
   const staffRole = await em.findOne(
     Role,
     { tenant_id: tenantId, name: 'staff' },
@@ -150,10 +168,11 @@ async function ensureStaff(em: EntityManager, tenantId: string): Promise<number>
   );
   if (!staffRole) {
     console.warn('No "staff" role found for tenant; skipping staff seed.');
-    return 0;
+    return { created: 0, qualified: 0 };
   }
 
   let created = 0;
+  let qualified = 0;
   for (const member of DEMO_STAFF) {
     const existing = await em.findOne(
       User,
@@ -185,8 +204,29 @@ async function ensureStaff(em: EntityManager, tenantId: string): Promise<number>
       em.persist(ur);
       await em.flush();
     }
+
+    // Qualify each demo staff member for every demo service so the shop's
+    // bookable-services filter (in shop.service.ts) doesn't drop them.
+    for (const svc of services) {
+      const existingQual = await em.findOne(
+        StaffQualification,
+        { tenant_id: tenantId, user: user.id, service: svc.id },
+        { filters: false },
+      );
+      if (!existingQual) {
+        em.persist(
+          em.create(StaffQualification, {
+            tenant_id: tenantId,
+            user,
+            service: svc,
+          }),
+        );
+        qualified++;
+      }
+    }
+    await em.flush();
   }
-  return created;
+  return { created, qualified };
 }
 
 async function run(): Promise<void> {
@@ -199,17 +239,22 @@ async function run(): Promise<void> {
 
     await ensureTenantBranding(em, tenant);
     const category = await ensureCategory(em, tenant.id);
-    const newServices = await ensureServices(em, tenant.id, category);
-    const newStaff = await ensureStaff(em, tenant.id);
+    const { services, created: newServices } = await ensureServices(em, tenant.id, category);
+    const { created: newStaff, qualified: newQualifications } = await ensureStaff(
+      em,
+      tenant.id,
+      services,
+    );
 
     const slug = tenant.slug ?? DEMO_SLUG;
     console.log(`\nSeed complete:`);
-    console.log(`  slug:              ${slug}`);
-    console.log(`  city:              ${tenant.city ?? '-'}`);
-    console.log(`  logo_url:          ${tenant.logo_url ?? '-'}`);
-    console.log(`  rating:            ${tenant.rating ?? '-'}`);
-    console.log(`  services created:  ${newServices}`);
-    console.log(`  staff created:     ${newStaff}`);
+    console.log(`  slug:                 ${slug}`);
+    console.log(`  city:                 ${tenant.city ?? '-'}`);
+    console.log(`  logo_url:             ${tenant.logo_url ?? '-'}`);
+    console.log(`  rating:               ${tenant.rating ?? '-'}`);
+    console.log(`  services created:     ${newServices}`);
+    console.log(`  staff created:        ${newStaff}`);
+    console.log(`  qualifications added: ${newQualifications}`);
     console.log(`\nOpen in browser:`);
     console.log(`  http://localhost:3000/shop/${slug}\n`);
   } finally {

@@ -23,6 +23,12 @@ interface FindArgs {
   where: Record<string, unknown>;
 }
 
+// Service IDs returned by the mocked `select distinct service_id from
+// staff_qualifications` query. Tests assign this before calling the service
+// to control which services are considered "bookable" (have ≥1 qualified
+// staff) by `getShopProfile`.
+let mockBookableServiceIds: string[] = [];
+
 function makeTenant(overrides: Partial<Tenant> = {}): Tenant {
   const t = new Tenant();
   t.id = 't-1';
@@ -76,6 +82,7 @@ describe('ShopService', () => {
   beforeEach(async () => {
     findOne = jest.fn();
     find = jest.fn();
+    mockBookableServiceIds = ['s1', 's2'];
 
     const em: Partial<EntityManager> = {
       findOne: ((entity: unknown, where: Record<string, unknown>) => {
@@ -86,7 +93,12 @@ describe('ShopService', () => {
       }) as EntityManager['find'],
       getConnection: () =>
         ({
-          execute: (_sql: string, params: unknown[]) => {
+          execute: (sql: string, params: unknown[]) => {
+            if (sql.includes('staff_qualifications')) {
+              return Promise.resolve(
+                mockBookableServiceIds.map((id) => ({ service_id: id })),
+              );
+            }
             const roleId = params?.[0];
             if (roleId === 'role-staff') {
               return Promise.resolve([{ user_id: 'u1' }]);
@@ -173,6 +185,45 @@ describe('ShopService', () => {
     const profile = await service.getShopProfile('salao-da-maria');
 
     expect(profile.staff).toEqual([]);
+    expect(profile.services).toEqual([]);
+  });
+
+  it('hides services that have no qualified staff (bookable filter)', async () => {
+    // s1 qualified, s2 not — only s1 should appear in the public shop response.
+    mockBookableServiceIds = ['s1'];
+    const tenant = makeTenant();
+    const services = [makeService('s1', 'Corte'), makeService('s2', 'Sem profissional')];
+
+    findOne.mockImplementation(({ entity, where }: FindOneArgs) => {
+      if (entity === Tenant && where['slug'] === 'salao-da-maria') return Promise.resolve(tenant);
+      return Promise.resolve(null);
+    });
+    find.mockImplementation(({ entity }: FindArgs) => {
+      if (entity === Service) return Promise.resolve(services);
+      return Promise.resolve([]);
+    });
+
+    const profile = await service.getShopProfile('salao-da-maria');
+
+    expect(profile.services.map((s) => s.id)).toEqual(['s1']);
+  });
+
+  it('returns no services when none of the active services have qualifications', async () => {
+    mockBookableServiceIds = [];
+    const tenant = makeTenant();
+    const services = [makeService('s1', 'Corte'), makeService('s2', 'Barba')];
+
+    findOne.mockImplementation(({ entity }: FindOneArgs) => {
+      if (entity === Tenant) return Promise.resolve(tenant);
+      return Promise.resolve(null);
+    });
+    find.mockImplementation(({ entity }: FindArgs) => {
+      if (entity === Service) return Promise.resolve(services);
+      return Promise.resolve([]);
+    });
+
+    const profile = await service.getShopProfile('salao-da-maria');
+
     expect(profile.services).toEqual([]);
   });
 });

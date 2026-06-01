@@ -6,7 +6,8 @@ export class PermissionDto {
 export class UserMeDto {
   id!: string;
   email!: string;
-  name!: string;
+  name!: string | null;
+  phone!: string | null;
   tenant_id!: string;
   roles!: string[];
   permissions!: PermissionDto[];

@@ -86,7 +86,7 @@ export class CreateUserHandler extends BaseCommandHandler<
       id: user.id,
       tenant_id: user.tenant_id,
       email: user.email,
-      full_name: user.full_name,
+      full_name: user.full_name ?? '',
       phone: user.phone ?? null,
       state: 'active',
       roles: roleNames,

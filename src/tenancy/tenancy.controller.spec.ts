@@ -1,3 +1,4 @@
+import { EntityManager } from '@mikro-orm/core';
 import { getRepositoryToken } from '@mikro-orm/nestjs';
 import { CommandBus } from '@nestjs/cqrs';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -30,7 +31,7 @@ describe('TenancyController', () => {
 describe('UsersController', () => {
   let controller: UsersController;
   let commandBus: { execute: jest.Mock };
-  let userRepo: { findOne: jest.Mock };
+  let userRepo: { findOne: jest.Mock; findAndCount: jest.Mock };
 
   const mockUser: RequestUser = {
     id: 'actor-id',
@@ -51,13 +52,17 @@ describe('UsersController', () => {
 
   beforeEach(async () => {
     commandBus = { execute: jest.fn().mockResolvedValue(mockResponse) };
-    userRepo = { findOne: jest.fn() };
+    userRepo = { findOne: jest.fn(), findAndCount: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UsersController],
       providers: [
         { provide: CommandBus, useValue: commandBus },
         { provide: getRepositoryToken(User), useValue: userRepo },
+        {
+          provide: EntityManager,
+          useValue: { findOne: jest.fn(), find: jest.fn() },
+        },
       ],
     })
       .overrideGuard(RolesGuard)
@@ -125,6 +130,7 @@ describe('UsersController', () => {
         id: 'actor-id',
         email: 'owner@acme.test',
         name: 'Acme Owner',
+        phone: null,
         tenant_id: 'tenant-id',
         roles: ['owner', 'staff'],
         permissions: [],

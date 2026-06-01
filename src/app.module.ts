@@ -11,6 +11,7 @@ import { CatalogModule } from './catalog/catalog.module';
 import { CommerceModule } from './commerce/commerce.module';
 import { FinanceModule } from './finance/finance.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { MessagingModule } from './messaging/messaging.module';
 import { NotificationModule } from './notification/notification.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PricingModule } from './pricing/pricing.module';
@@ -39,6 +40,7 @@ import { TenancyModule } from './tenancy/tenancy.module';
     NotificationModule,
     ShopModule,
     PaymentsModule.register(),
+    MessagingModule.register(),
   ],
   controllers: [AppController],
   providers: [AppService],
