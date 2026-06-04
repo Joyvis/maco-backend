@@ -33,7 +33,12 @@ import {
 } from './dto/create-booking.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { RescheduleOrderDto } from './dto/reschedule-order.dto';
-import { BookingResultDto, RefundPolicyDto, SaleOrderResponseDto } from './dto/sale-order.dto';
+import {
+  BookingResultDto,
+  RefundPolicyDto,
+  SaleOrderItemDto,
+  SaleOrderResponseDto,
+} from './dto/sale-order.dto';
 import { RefundPolicy } from './entities/refund-policy.entity';
 import {
   ComboComponentSnapshot,
@@ -48,6 +53,11 @@ import {
 } from './entities/sale-order.entity';
 
 const noTenantFilter = () => ({ filters: { tenant: false } });
+
+const ORDER_POPULATE = ['service', 'staff', 'items', 'items.assigned_staff'] as const;
+
+const STAFF_ROLES = new Set(['owner', 'ta']);
+const isStaff = (roles?: readonly string[]) => Boolean(roles?.some((r) => STAFF_ROLES.has(r)));
 
 interface ResolvedServiceLine {
   kind: 'service';
@@ -227,7 +237,7 @@ export class CommerceService {
       orderBy: { created_at: 'desc' },
       limit: page_size,
       offset: (page - 1) * page_size,
-      populate: ['service', 'staff'],
+      populate: ORDER_POPULATE,
       ...noTenantFilter(),
     });
 
@@ -245,7 +255,7 @@ export class CommerceService {
     const order = await this.em.findOne(
       SaleOrder,
       { id: orderId, tenant_id: tenantId },
-      { populate: ['service', 'staff'], ...noTenantFilter() },
+      { populate: ORDER_POPULATE, ...noTenantFilter() },
     );
     if (!order) throw new NotFoundException('Order not found');
     if (order.customer.id !== customerId) {
@@ -256,17 +266,18 @@ export class CommerceService {
 
   async cancelOrder(
     tenantId: string,
-    customerId: string,
+    callerId: string,
+    callerRoles: readonly string[],
     orderId: string,
     dto: CancelOrderDto,
   ): Promise<SaleOrderResponseDto> {
     const order = await this.em.findOne(
       SaleOrder,
       { id: orderId, tenant_id: tenantId },
-      { populate: ['service', 'staff'], ...noTenantFilter() },
+      { populate: ORDER_POPULATE, ...noTenantFilter() },
     );
     if (!order) throw new NotFoundException('Order not found');
-    if (order.customer.id !== customerId) {
+    if (order.customer.id !== callerId && !isStaff(callerRoles)) {
       throw new ForbiddenException("Cannot cancel another user's order");
     }
     if (
@@ -285,7 +296,8 @@ export class CommerceService {
 
   async rescheduleOrder(
     tenantId: string,
-    customerId: string,
+    callerId: string,
+    callerRoles: readonly string[],
     orderId: string,
     dto: RescheduleOrderDto,
   ): Promise<SaleOrderResponseDto> {
@@ -297,10 +309,10 @@ export class CommerceService {
     const order = await this.em.findOne(
       SaleOrder,
       { id: orderId, tenant_id: tenantId },
-      { populate: ['service', 'staff'], ...noTenantFilter() },
+      { populate: ORDER_POPULATE, ...noTenantFilter() },
     );
     if (!order) throw new NotFoundException('Order not found');
-    if (order.customer.id !== customerId) {
+    if (order.customer.id !== callerId && !isStaff(callerRoles)) {
       throw new ForbiddenException("Cannot reschedule another user's order");
     }
     if (order.fulfillment !== SaleOrderFulfillment.APPOINTMENT) {
@@ -340,7 +352,7 @@ export class CommerceService {
     const order = await this.em.findOne(
       SaleOrder,
       { id: orderId, tenant_id: tenantId },
-      { populate: ['service', 'staff'], ...noTenantFilter() },
+      { populate: ORDER_POPULATE, ...noTenantFilter() },
     );
     if (!order) throw new NotFoundException('Order not found');
     if (order.customer.id !== customerId) {
@@ -362,7 +374,7 @@ export class CommerceService {
     const order = await this.em.findOne(
       SaleOrder,
       { id: orderId, tenant_id: tenantId },
-      { populate: ['service', 'staff'], ...noTenantFilter() },
+      { populate: ORDER_POPULATE, ...noTenantFilter() },
     );
     if (!order) throw new NotFoundException('Order not found');
     this.assertTransition(order, SaleOrderState.CONFIRMED, SaleOrderState.CHECKED_IN);
@@ -376,7 +388,7 @@ export class CommerceService {
     const order = await this.em.findOne(
       SaleOrder,
       { id: orderId, tenant_id: tenantId },
-      { populate: ['service', 'staff'], ...noTenantFilter() },
+      { populate: ORDER_POPULATE, ...noTenantFilter() },
     );
     if (!order) throw new NotFoundException('Order not found');
     this.assertTransition(order, SaleOrderState.CHECKED_IN, SaleOrderState.IN_PROGRESS);
@@ -394,7 +406,7 @@ export class CommerceService {
     const order = await this.em.findOne(
       SaleOrder,
       { id: orderId, tenant_id: tenantId },
-      { populate: ['service', 'staff'], ...noTenantFilter() },
+      { populate: ORDER_POPULATE, ...noTenantFilter() },
     );
     if (!order) throw new NotFoundException('Order not found');
     this.assertTransition(order, SaleOrderState.IN_PROGRESS, SaleOrderState.PENDING_CHECKOUT);
@@ -408,7 +420,7 @@ export class CommerceService {
     const order = await this.em.findOne(
       SaleOrder,
       { id: orderId, tenant_id: tenantId },
-      { populate: ['service', 'staff'], ...noTenantFilter() },
+      { populate: ORDER_POPULATE, ...noTenantFilter() },
     );
     if (!order) throw new NotFoundException('Order not found');
     this.assertTransition(order, SaleOrderState.CONFIRMED, SaleOrderState.NO_SHOW);
@@ -946,7 +958,23 @@ export class CommerceService {
       booking_channel: o.booking_channel ?? null,
       notes: o.notes ?? null,
       created_at: o.created_at.toISOString(),
+      items: this.toOrderItemsDto(o),
     };
+  }
+
+  private toOrderItemsDto(o: SaleOrder): SaleOrderItemDto[] {
+    if (!o.items.isInitialized()) return [];
+    return o.items
+      .getItems()
+      .filter((i) => !i.is_dependency)
+      .map((i) => ({
+        id: i.id,
+        catalog_item_type: i.catalog_item_type,
+        name: i.name_snapshot ?? '',
+        quantity: i.quantity,
+        assigned_staff_name: i.assigned_staff?.full_name,
+        slot_start_at: i.slot_start_at?.toISOString(),
+      }));
   }
 }
 

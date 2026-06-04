@@ -1,3 +1,12 @@
+export interface SaleOrderItemDto {
+  id: string;
+  catalog_item_type: 'service' | 'product' | 'combo';
+  name: string;
+  quantity: number;
+  assigned_staff_name?: string;
+  slot_start_at?: string;
+}
+
 export interface SaleOrderResponseDto {
   id: string;
   state: string;
@@ -10,6 +19,7 @@ export interface SaleOrderResponseDto {
   booking_channel: string | null;
   notes: string | null;
   created_at: string;
+  items: SaleOrderItemDto[];
 }
 
 export interface BookingResultDto {

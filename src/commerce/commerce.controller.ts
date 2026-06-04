@@ -77,7 +77,13 @@ export class CommerceController {
     @Body() dto: CancelOrderDto,
     @CurrentUser() user: RequestUser,
   ): Promise<{ data: SaleOrderResponseDto }> {
-    const data = await this.commerceService.cancelOrder(user.tenantId, user.id, id, dto);
+    const data = await this.commerceService.cancelOrder(
+      user.tenantId,
+      user.id,
+      user.roles,
+      id,
+      dto,
+    );
     return { data };
   }
 
@@ -88,7 +94,13 @@ export class CommerceController {
     @Body() dto: RescheduleOrderDto,
     @CurrentUser() user: RequestUser,
   ): Promise<{ data: SaleOrderResponseDto }> {
-    const data = await this.commerceService.rescheduleOrder(user.tenantId, user.id, id, dto);
+    const data = await this.commerceService.rescheduleOrder(
+      user.tenantId,
+      user.id,
+      user.roles,
+      id,
+      dto,
+    );
     return { data };
   }
 

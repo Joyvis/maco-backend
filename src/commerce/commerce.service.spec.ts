@@ -1,6 +1,6 @@
 import { Service } from '@catalog/entities/service.entity';
 import { EntityManager } from '@mikro-orm/core';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PaymentsService } from '@payments/payments.service';
 import { Tenant } from '@tenancy/entities/tenant.entity';
 
@@ -62,7 +62,12 @@ describe('CommerceService — populate option leak guard', () => {
     await service.listMyOrders('tenant-1', 'customer-1', {});
 
     expect(findAndCountOptions).toHaveLength(1);
-    expect(findAndCountOptions[0].populate).toEqual(['service', 'staff']);
+    expect(findAndCountOptions[0].populate).toEqual([
+      'service',
+      'staff',
+      'items',
+      'items.assigned_staff',
+    ]);
     expect(findAndCountOptions[0].filters).toEqual({ tenant: false });
   });
 });
@@ -228,6 +233,122 @@ describe('CommerceService — noShow', () => {
     const fakeEm = makeEm(order);
     const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
     await expect(svc.noShow('tenant-1', 'user-1', 'order-1')).rejects.toThrow(ConflictException);
+  });
+});
+
+describe('CommerceService — cancelOrder authorization', () => {
+  function makeCancelableOrder(): SaleOrder {
+    const o = makeOrder(SaleOrderState.CONFIRMED);
+    o.customer = { id: 'customer-1' } as never;
+    return o;
+  }
+
+  it('allows the owning customer to cancel', async () => {
+    const order = makeCancelableOrder();
+    const fakeEm = makeEm(order);
+    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+
+    await svc.cancelOrder('tenant-1', 'customer-1', ['customer'], 'order-1', {
+      reason: 'changed mind',
+    });
+
+    expect(order.state).toBe(SaleOrderState.CANCELLED);
+    expect(fakeEm.flush).toHaveBeenCalled();
+  });
+
+  it('rejects a different customer with ForbiddenException', async () => {
+    const order = makeCancelableOrder();
+    const fakeEm = makeEm(order);
+    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+
+    await expect(
+      svc.cancelOrder('tenant-1', 'customer-2', ['customer'], 'order-1', { reason: 'x' }),
+    ).rejects.toThrow(ForbiddenException);
+    expect(order.state).toBe(SaleOrderState.CONFIRMED);
+  });
+
+  it('allows a receptionist (ta role) to cancel any order in the tenant', async () => {
+    const order = makeCancelableOrder();
+    const fakeEm = makeEm(order);
+    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+
+    await svc.cancelOrder('tenant-1', 'receptionist-1', ['ta'], 'order-1', { reason: 'no-show' });
+
+    expect(order.state).toBe(SaleOrderState.CANCELLED);
+  });
+
+  it('allows an owner to cancel any order in the tenant', async () => {
+    const order = makeCancelableOrder();
+    const fakeEm = makeEm(order);
+    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+
+    await svc.cancelOrder('tenant-1', 'owner-1', ['owner'], 'order-1', { reason: 'manual' });
+
+    expect(order.state).toBe(SaleOrderState.CANCELLED);
+  });
+});
+
+describe('CommerceService — rescheduleOrder authorization', () => {
+  function makeReschedulableOrder(): SaleOrder {
+    const o = makeOrder(SaleOrderState.CONFIRMED);
+    o.customer = { id: 'customer-1' } as never;
+    o.service = { duration_minutes: 30 } as never;
+    return o;
+  }
+
+  function makeRescheduleEm(order: SaleOrder | null) {
+    const execute = jest.fn().mockResolvedValue(undefined);
+    const em = {
+      findOne: jest.fn().mockResolvedValue(order),
+      flush: jest.fn().mockResolvedValue(undefined),
+      getConnection: jest.fn().mockReturnValue({ execute }),
+    };
+    return { em, execute };
+  }
+
+  const dto = { new_datetime: '2026-06-10T14:00:00.000Z' };
+
+  it('allows the owning customer to reschedule', async () => {
+    const order = makeReschedulableOrder();
+    const { em, execute } = makeRescheduleEm(order);
+    const svc = new CommerceService(em as unknown as EntityManager, noopPayments);
+
+    await svc.rescheduleOrder('tenant-1', 'customer-1', ['customer'], 'order-1', dto);
+
+    expect(execute).toHaveBeenCalled();
+    expect(order.scheduled_at).toBeInstanceOf(Date);
+  });
+
+  it('rejects a different customer with ForbiddenException', async () => {
+    const order = makeReschedulableOrder();
+    const { em, execute } = makeRescheduleEm(order);
+    const svc = new CommerceService(em as unknown as EntityManager, noopPayments);
+
+    await expect(
+      svc.rescheduleOrder('tenant-1', 'customer-2', ['customer'], 'order-1', dto),
+    ).rejects.toThrow(ForbiddenException);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('allows a receptionist (ta role) to reschedule any order in the tenant', async () => {
+    const order = makeReschedulableOrder();
+    const { em, execute } = makeRescheduleEm(order);
+    const svc = new CommerceService(em as unknown as EntityManager, noopPayments);
+
+    await svc.rescheduleOrder('tenant-1', 'receptionist-1', ['ta'], 'order-1', dto);
+
+    expect(execute).toHaveBeenCalled();
+    expect(order.scheduled_at).toBeInstanceOf(Date);
+  });
+
+  it('allows an owner to reschedule any order in the tenant', async () => {
+    const order = makeReschedulableOrder();
+    const { em, execute } = makeRescheduleEm(order);
+    const svc = new CommerceService(em as unknown as EntityManager, noopPayments);
+
+    await svc.rescheduleOrder('tenant-1', 'owner-1', ['owner'], 'order-1', dto);
+
+    expect(execute).toHaveBeenCalled();
   });
 });
 
