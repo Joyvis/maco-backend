@@ -28,6 +28,7 @@ describe('MockMessageProvider', () => {
 
     await expect(provider.sendMagicLink(input)).resolves.toBeUndefined();
     expect(logSpy).toHaveBeenCalledTimes(1);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- jest mock.calls is typed as any[][]
     const logged = String(logSpy.mock.calls[0]?.[0] ?? '');
     expect(logged).toContain('salao-demo');
     expect(logged).toContain('+5511912123434');

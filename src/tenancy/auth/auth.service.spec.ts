@@ -76,21 +76,28 @@ describe('AuthService', () => {
     };
     eventBus = { publish: jest.fn() };
 
-    const stubRepo = { findOne: jest.fn(), create: jest.fn(), getEntityManager: jest.fn().mockReturnValue(em) };
-    const stubMessageProvider = { name: 'mock' as const, sendMagicLink: jest.fn().mockResolvedValue(undefined) };
+    const stubRepo = {
+      findOne: jest.fn(),
+      create: jest.fn(),
+      getEntityManager: jest.fn().mockReturnValue(em),
+    };
+    const stubMessageProvider = {
+      name: 'mock' as const,
+      sendMagicLink: jest.fn().mockResolvedValue(undefined),
+    };
 
     service = new AuthService(
       userRepo as unknown as EntityRepository<User>,
       refreshTokenRepo as unknown as EntityRepository<RefreshToken>,
       jwtService as unknown as JwtService,
       tenantRepo as unknown as EntityRepository<Tenant>,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
       stubRepo as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
       stubRepo as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
       stubRepo as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
       stubRepo as any,
       stubMessageProvider,
       eventBus as unknown as EventBus,

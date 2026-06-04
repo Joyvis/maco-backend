@@ -29,6 +29,7 @@ export class ListServicesQueryDto {
   @Transform(({ value }) => {
     if (value === 'true' || value === true) return true;
     if (value === 'false' || value === false) return false;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- IsBoolean rejects non-boolean below
     return value;
   })
   @IsBoolean()

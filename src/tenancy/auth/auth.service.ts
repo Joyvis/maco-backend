@@ -2,13 +2,19 @@ import * as crypto from 'crypto';
 
 import { EntityRepository } from '@mikro-orm/core';
 import { InjectRepository } from '@mikro-orm/nestjs';
-import { BadRequestException, ForbiddenException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { EventBus } from '@nestjs/cqrs';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 
-import { normalizeBrPhone } from '../../shared/phone';
 import { MESSAGE_PROVIDER, MessageProvider } from '../../messaging/message-provider.interface';
+import { normalizeBrPhone } from '../../shared/phone';
 import { MagicLinkAttempt } from '../entities/magic-link-attempt.entity';
 import { MagicLinkRateLimit } from '../entities/magic-link-rate-limit.entity';
 import { RefreshToken } from '../entities/refresh-token.entity';
@@ -107,7 +113,11 @@ export class AuthService {
    * Verifies a magic-link token. Single-use; lazy-creates the customer User on
    * first successful verify. Throws 401 for missing / expired / consumed tokens.
    */
-  async verifyPhoneLogin(rawToken: string, ipAddress: string, userAgent: string): Promise<AuthResponseDto> {
+  async verifyPhoneLogin(
+    rawToken: string,
+    ipAddress: string,
+    userAgent: string,
+  ): Promise<AuthResponseDto> {
     const tokenHash = hashToken(rawToken);
     const attempt = await this.magicLinkRepo.findOne({ token_hash: tokenHash }, { filters: false });
     if (!attempt) {
@@ -151,7 +161,9 @@ export class AuthService {
 
     const result = await this.generateTokenPair(user);
 
-    this.eventBus.publish(new UserLoggedInEvent(user.tenant_id, user.id, ipAddress, userAgent, loggedInAt));
+    this.eventBus.publish(
+      new UserLoggedInEvent(user.tenant_id, user.id, ipAddress, userAgent, loggedInAt),
+    );
 
     return result;
   }
@@ -192,7 +204,11 @@ export class AuthService {
     return false;
   }
 
-  private async lazyCreateCustomer(tenantId: string, phoneE164: string, synthEmail: string): Promise<User> {
+  private async lazyCreateCustomer(
+    tenantId: string,
+    phoneE164: string,
+    synthEmail: string,
+  ): Promise<User> {
     const em = this.userRepo.getEntityManager();
 
     const customerRole = await this.roleRepo.findOne(

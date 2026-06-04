@@ -95,9 +95,7 @@ describe('ShopService', () => {
         ({
           execute: (sql: string, params: unknown[]) => {
             if (sql.includes('staff_qualifications')) {
-              return Promise.resolve(
-                mockBookableServiceIds.map((id) => ({ service_id: id })),
-              );
+              return Promise.resolve(mockBookableServiceIds.map((id) => ({ service_id: id })));
             }
             const roleId = params?.[0];
             if (roleId === 'role-staff') {

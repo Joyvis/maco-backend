@@ -63,8 +63,12 @@ export class Migration20260530000000 extends Migration {
   async down(): Promise<void> {
     this.addSql(`drop table if exists "magic_link_rate_limits";`);
     this.addSql(`drop table if exists "magic_link_attempts";`);
-    this.addSql(`alter table "users" drop constraint if exists "users_full_name_required_for_password_auth";`);
-    this.addSql(`alter table "users" drop constraint if exists "users_password_required_for_password_auth";`);
+    this.addSql(
+      `alter table "users" drop constraint if exists "users_full_name_required_for_password_auth";`,
+    );
+    this.addSql(
+      `alter table "users" drop constraint if exists "users_password_required_for_password_auth";`,
+    );
     this.addSql(`alter table "users" drop constraint if exists "users_auth_method_check";`);
     this.addSql(`alter table "users" drop column if exists "auth_method";`);
     this.addSql(`alter table "users" alter column "full_name" set not null;`);

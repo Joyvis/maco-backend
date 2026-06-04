@@ -47,10 +47,7 @@ export class SchedulingController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: RequestUser,
   ): Promise<{ data: StaffQualification[] }> {
-    const data = await this.schedulingService.getStaffQualifications(
-      user.tenantId,
-      id,
-    );
+    const data = await this.schedulingService.getStaffQualifications(user.tenantId, id);
     return { data };
   }
 }

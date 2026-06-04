@@ -182,16 +182,14 @@ export class SchedulingService {
     tenantId: string,
     userId: string,
   ): Promise<Array<{ service_id: string; service_name: string }>> {
-    const rows = (await this.em
-      .getConnection()
-      .execute(
-        `select sq.service_id, s.name as service_name
+    const rows = (await this.em.getConnection().execute(
+      `select sq.service_id, s.name as service_name
            from staff_qualifications sq
            join services s on s.id = sq.service_id
           where sq.tenant_id = ? and sq.user_id = ?
           order by s.name asc`,
-        [tenantId, userId],
-      )) as Array<{ service_id: string; service_name: string }>;
+      [tenantId, userId],
+    )) as Array<{ service_id: string; service_name: string }>;
     return rows.map((r) => ({
       service_id: r.service_id,
       service_name: r.service_name,
