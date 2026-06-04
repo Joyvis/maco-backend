@@ -25,10 +25,7 @@ import { AdminCreateTenantDto } from './dto/admin-create-tenant.dto';
 import { CreateUserResponseDto } from './dto/create-user-response.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
-import {
-  ListUsersResponseDto,
-  ManagedUserDto,
-} from './dto/list-users-response.dto';
+import { ListUsersResponseDto, ManagedUserDto } from './dto/list-users-response.dto';
 import { SignUpResponseDto } from './dto/sign-up-response.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { UserMeDto } from './dto/user-me.dto';
@@ -76,9 +73,7 @@ export class UsersController {
     // `q[roles_slug_eq]` survives query parsing as a bracketed key — read it
     // off the raw query rather than the DTO, which can't bind dotted keys.
     const roleFilter =
-      query.role ??
-      (req.query['q[roles_slug_eq]'] as string | undefined) ??
-      undefined;
+      query.role ?? (req.query['q[roles_slug_eq]'] as string | undefined) ?? undefined;
 
     let restrictToUserIds: string[] | null = null;
     if (roleFilter) {
@@ -93,11 +88,7 @@ export class UsersController {
           meta: { total: 0, page, page_size, total_pages: 1 },
         };
       }
-      const links = await this.em.find(
-        UserRole,
-        { role: role.id },
-        { filters: false },
-      );
+      const links = await this.em.find(UserRole, { role: role.id }, { filters: false });
       restrictToUserIds = links.map((l) => l.user.id);
       if (restrictToUserIds.length === 0) {
         return {
@@ -113,10 +104,7 @@ export class UsersController {
     }
     if (query.search) {
       const term = `%${query.search}%`;
-      where.$or = [
-        { full_name: { $ilike: term } },
-        { email: { $ilike: term } },
-      ];
+      where.$or = [{ full_name: { $ilike: term } }, { email: { $ilike: term } }];
     }
 
     const [items, total] = await this.userRepo.findAndCount(where, {
@@ -133,14 +121,12 @@ export class UsersController {
     const userIds = items.map((u) => u.id);
     const visitCounts = new Map<string, number>();
     if (userIds.length > 0) {
-      const rows = (await this.em
-        .getConnection()
-        .execute(
-          `select customer_id, count(*)::int as visit_count from sale_orders
+      const rows = (await this.em.getConnection().execute(
+        `select customer_id, count(*)::int as visit_count from sale_orders
             where tenant_id = ? and customer_id in (${userIds.map(() => '?').join(',')})
             group by customer_id`,
-          [currentUser.tenantId, ...userIds],
-        )) as Array<{ customer_id: string; visit_count: string | number }>;
+        [currentUser.tenantId, ...userIds],
+      )) as Array<{ customer_id: string; visit_count: string | number }>;
       for (const r of rows) visitCounts.set(r.customer_id, Number(r.visit_count) || 0);
     }
 

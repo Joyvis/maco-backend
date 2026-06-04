@@ -23,7 +23,15 @@ import { JwtStrategy } from './jwt.strategy';
     CqrsModule,
     PassportModule,
     JwtModule.register({}),
-    MikroOrmModule.forFeature([User, UserRole, RefreshToken, Tenant, MagicLinkAttempt, MagicLinkRateLimit, Role]),
+    MikroOrmModule.forFeature([
+      User,
+      UserRole,
+      RefreshToken,
+      Tenant,
+      MagicLinkAttempt,
+      MagicLinkRateLimit,
+      Role,
+    ]),
   ],
   controllers: [AuthController],
   providers: [

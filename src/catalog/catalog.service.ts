@@ -265,10 +265,9 @@ export class CatalogService {
     if (query.bookable === true) {
       const rows = (await this.em
         .getConnection()
-        .execute(
-          'select distinct service_id from staff_qualifications where tenant_id = ?',
-          [tenantId],
-        )) as Array<{ service_id: string }>;
+        .execute('select distinct service_id from staff_qualifications where tenant_id = ?', [
+          tenantId,
+        ])) as Array<{ service_id: string }>;
       const bookableIds = rows.map((r) => r.service_id);
       if (bookableIds.length === 0) {
         return {

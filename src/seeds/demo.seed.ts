@@ -440,11 +440,7 @@ async function ensureTaUser(em: EntityManager, taRole: Role): Promise<User> {
     });
     await em.persistAndFlush(user);
   }
-  const link = await em.findOne(
-    UserRole,
-    { user: user.id, role: taRole.id },
-    { filters: false },
-  );
+  const link = await em.findOne(UserRole, { user: user.id, role: taRole.id }, { filters: false });
   if (!link) {
     em.persist(em.create(UserRole, { user, role: taRole }));
     await em.flush();
