@@ -313,7 +313,9 @@ describe('CommerceService.getAgenda', () => {
   });
 
   it('null fields return null in appointment DTO', async () => {
-    const order = makeOrder('order-1', SaleOrderState.CONFIRMED, undefined, []);
+    const order = makeOrder('order-1', SaleOrderState.CONFIRMED, undefined, [
+      makeItem(SaleOrderItemType.SERVICE, 'Cut'),
+    ]);
     order.customer = {
       full_name: 'No Phone',
       phone: undefined,
