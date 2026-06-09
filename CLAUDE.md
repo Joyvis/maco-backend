@@ -1,3 +1,5 @@
+@AGENTS.md
+
 # maco-backend
 
 NestJS backend for the MacoSaaS Agent Orchestrator.
