@@ -468,7 +468,10 @@ export class CommerceService {
         ? await this.em.find(
             SaleOrder,
             { id: { $in: orderIds } },
-            { populate: ['customer', 'items.service', 'staff'], ...noTenantFilter() },
+            {
+              populate: ['customer', 'items.service', 'items.assigned_staff', 'staff'],
+              ...noTenantFilter(),
+            },
           )
         : [];
 
@@ -480,9 +483,34 @@ export class CommerceService {
         [tenantId, dayOfWeek],
       )) as Array<{ user_id: string; start_time: string; end_time: string }>;
 
-    // Collect all staff IDs from schedules + from orders (drift)
+    // Bucket items per (effective staff, order). Effective staff is the item's
+    // own assigned_staff, falling back to the order's order-level staff for
+    // legacy/non-cart bookings that only set a top-level staff_id. An order
+    // with two items assigned to two distinct staff produces two entries —
+    // one under each staff's column — each carrying only that staff's items.
+    const itemBuckets = new Map<string, Map<string, SaleOrderItem[]>>();
+    const unassignedBuckets = new Map<string, SaleOrderItem[]>();
+
+    for (const order of orders) {
+      for (const item of order.items.getItems()) {
+        const effectiveStaffId = item.assigned_staff?.id ?? order.staff?.id ?? null;
+        if (effectiveStaffId) {
+          const perStaff = itemBuckets.get(effectiveStaffId) ?? new Map<string, SaleOrderItem[]>();
+          const perOrder = perStaff.get(order.id) ?? [];
+          perOrder.push(item);
+          perStaff.set(order.id, perOrder);
+          itemBuckets.set(effectiveStaffId, perStaff);
+        } else {
+          const perOrder = unassignedBuckets.get(order.id) ?? [];
+          perOrder.push(item);
+          unassignedBuckets.set(order.id, perOrder);
+        }
+      }
+    }
+
+    // Collect all staff IDs from schedules + from any item-derived bucket (drift)
     const scheduleStaffIds = new Set(scheduleRows.map((r) => r.user_id));
-    const orderStaffIds = new Set(orders.filter((o) => o.staff?.id).map((o) => o.staff!.id));
+    const orderStaffIds = new Set(itemBuckets.keys());
     const allStaffIds = [...new Set([...scheduleStaffIds, ...orderStaffIds])];
 
     const staffUsers =
@@ -494,26 +522,17 @@ export class CommerceService {
           )
         : [];
 
-    // Group orders by staff_id
-    const assignedOrders = new Map<string, SaleOrder[]>();
-    const unassignedOrders: SaleOrder[] = [];
-
-    for (const order of orders) {
-      const staffId = order.staff?.id;
-      if (staffId) {
-        const bucket = assignedOrders.get(staffId) ?? [];
-        bucket.push(order);
-        assignedOrders.set(staffId, bucket);
-      } else {
-        unassignedOrders.push(order);
-      }
-    }
+    const ordersById = new Map(orders.map((o) => [o.id, o]));
 
     const staff: AgendaStaffEntryDto[] = allStaffIds.map((staffId) => {
       const user = staffUsers.find((u) => u.id === staffId);
       const schedule = scheduleRows.find((s) => s.user_id === staffId);
-      const staffOrderList = assignedOrders.get(staffId) ?? [];
-      const appointments = staffOrderList.map(toAppointmentDto);
+      const perOrder = itemBuckets.get(staffId);
+      const appointments: AgendaAppointmentDto[] = perOrder
+        ? [...perOrder.entries()].map(([orderId, items]) =>
+            toAppointmentDtoForItems(ordersById.get(orderId)!, items),
+          )
+        : [];
       return {
         id: staffId,
         name: user?.full_name ?? '',
@@ -524,7 +543,11 @@ export class CommerceService {
       };
     });
 
-    return { staff, unassigned: unassignedOrders.map(toAppointmentDto) };
+    const unassigned: AgendaAppointmentDto[] = [...unassignedBuckets.entries()].map(
+      ([orderId, items]) => toAppointmentDtoForItems(ordersById.get(orderId)!, items),
+    );
+
+    return { staff, unassigned };
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1037,18 +1060,30 @@ function trimTime(t: string): string {
   return t.slice(0, 5);
 }
 
-function toAppointmentDto(order: SaleOrder): AgendaAppointmentDto {
-  const serviceNames = order.items
-    .getItems()
+// Build the per-staff appointment DTO. Only the subset of items belonging to
+// this staff contributes to `services` and to the time window. Items without
+// a `slot_start_at` (legacy non-cart bookings) fall back to the order-level
+// `scheduled_at`/`scheduled_end_at` so the column still positions the block.
+function toAppointmentDtoForItems(order: SaleOrder, items: SaleOrderItem[]): AgendaAppointmentDto {
+  const serviceNames = items
     .filter((i) => i.catalog_item_type === SaleOrderItemType.SERVICE && !i.is_dependency)
     .map((i) => i.name_snapshot ?? i.service?.name)
     .filter((n): n is string => Boolean(n))
     .join(', ');
 
-  const durationMinutes =
-    order.scheduled_at && order.scheduled_end_at
-      ? Math.round((order.scheduled_end_at.getTime() - order.scheduled_at.getTime()) / 60_000)
-      : null;
+  const slotStarts = items.map((i) => i.slot_start_at).filter((d): d is Date => Boolean(d));
+  const slotEnds = items.map((i) => i.slot_end_at).filter((d): d is Date => Boolean(d));
+
+  const startAt =
+    slotStarts.length > 0
+      ? new Date(Math.min(...slotStarts.map((d) => d.getTime())))
+      : order.scheduled_at!;
+  const endAt =
+    slotEnds.length > 0
+      ? new Date(Math.max(...slotEnds.map((d) => d.getTime())))
+      : (order.scheduled_end_at ?? null);
+
+  const durationMinutes = endAt ? Math.round((endAt.getTime() - startAt.getTime()) / 60_000) : null;
 
   return {
     id: order.id,
@@ -1056,8 +1091,8 @@ function toAppointmentDto(order: SaleOrder): AgendaAppointmentDto {
     customer_phone: order.customer.phone ?? null,
     customer_email: order.customer.email,
     services: serviceNames,
-    scheduled_start_at: order.scheduled_at!.toISOString(),
-    scheduled_end_at: order.scheduled_end_at?.toISOString() ?? null,
+    scheduled_start_at: startAt.toISOString(),
+    scheduled_end_at: endAt?.toISOString() ?? null,
     duration_minutes: durationMinutes,
     state: order.state,
     total: Number(order.total_amount),
