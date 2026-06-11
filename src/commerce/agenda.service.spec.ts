@@ -1,5 +1,6 @@
 import { Collection, EntityManager } from '@mikro-orm/core';
 import { PaymentsService } from '@payments/payments.service';
+import { SchedulingService } from '@scheduling/scheduling.service';
 
 import { CommerceService } from './commerce.service';
 import { AgendaResponseDto } from './dto/agenda-response.dto';
@@ -7,6 +8,9 @@ import { SaleOrderItem, SaleOrderItemType } from './entities/sale-order-item.ent
 import { SaleOrder, SaleOrderFulfillment, SaleOrderState } from './entities/sale-order.entity';
 
 const noopPayments = { startCheckout: jest.fn() } as unknown as PaymentsService;
+const noopScheduling = {
+  getEligibleStaffForSlot: jest.fn().mockResolvedValue([]),
+} as unknown as SchedulingService;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -100,7 +104,7 @@ describe('CommerceService.getAgenda', () => {
       scheduleRows: [{ user_id: 'staff-1', start_time: '09:00', end_time: '18:00' }],
       staffUsers: [{ id: 'staff-1', full_name: 'Zé Barbeiro' }],
     });
-    const svc = new CommerceService(em, noopPayments);
+    const svc = new CommerceService(em, noopPayments, noopScheduling);
 
     const result: AgendaResponseDto = await svc.getAgenda(TENANT, DATE);
 
@@ -123,7 +127,7 @@ describe('CommerceService.getAgenda', () => {
       scheduleRows: [{ user_id: 'staff-1', start_time: '09:00', end_time: '18:00' }],
       staffUsers: [{ id: 'staff-1', full_name: 'Zé Barbeiro' }],
     });
-    const svc = new CommerceService(em, noopPayments);
+    const svc = new CommerceService(em, noopPayments, noopScheduling);
 
     const result = await svc.getAgenda(TENANT, DATE);
 
@@ -149,7 +153,7 @@ describe('CommerceService.getAgenda', () => {
       scheduleRows: [],
       staffUsers: [],
     });
-    const svc = new CommerceService(em, noopPayments);
+    const svc = new CommerceService(em, noopPayments, noopScheduling);
 
     const result = await svc.getAgenda(TENANT, DATE);
 
@@ -171,7 +175,7 @@ describe('CommerceService.getAgenda', () => {
       scheduleRows: [{ user_id: 'staff-1', start_time: '09:00', end_time: '18:00' }],
       staffUsers: [{ id: 'staff-1', full_name: 'Staff One' }],
     });
-    const svc = new CommerceService(em, noopPayments);
+    const svc = new CommerceService(em, noopPayments, noopScheduling);
 
     const result = await svc.getAgenda(TENANT, DATE);
     const appt = result.staff[0].appointments[0];
@@ -204,7 +208,7 @@ describe('CommerceService.getAgenda', () => {
       scheduleRows: [{ user_id: 'staff-1', start_time: '09:00', end_time: '18:00' }],
       staffUsers: [{ id: 'staff-1', full_name: 'Staff One' }],
     });
-    const svc = new CommerceService(em, noopPayments);
+    const svc = new CommerceService(em, noopPayments, noopScheduling);
 
     const result = await svc.getAgenda(TENANT, DATE);
 
@@ -221,7 +225,7 @@ describe('CommerceService.getAgenda', () => {
       scheduleRows: [], // no schedule for this staff on this day
       staffUsers: [{ id: 'staff-drift', full_name: 'Drift Staff' }],
     });
-    const svc = new CommerceService(em, noopPayments);
+    const svc = new CommerceService(em, noopPayments, noopScheduling);
 
     const result = await svc.getAgenda(TENANT, DATE);
 
@@ -242,7 +246,7 @@ describe('CommerceService.getAgenda', () => {
       scheduleRows: [],
       staffUsers: [],
     });
-    const svc = new CommerceService(em, noopPayments);
+    const svc = new CommerceService(em, noopPayments, noopScheduling);
 
     const result = await svc.getAgenda(TENANT, DATE);
 
@@ -261,7 +265,7 @@ describe('CommerceService.getAgenda', () => {
       find: jest.fn().mockResolvedValueOnce([{ id: 'staff-1', full_name: 'Idle Staff' }]),
       getConnection: () => conn,
     } as unknown as EntityManager;
-    const svc = new CommerceService(em, noopPayments);
+    const svc = new CommerceService(em, noopPayments, noopScheduling);
 
     const result = await svc.getAgenda(TENANT, DATE);
 
@@ -286,7 +290,7 @@ describe('CommerceService.getAgenda', () => {
       find: jest.fn().mockResolvedValue([]),
       getConnection: () => conn,
     } as unknown as EntityManager;
-    const svc = new CommerceService(em, noopPayments);
+    const svc = new CommerceService(em, noopPayments, noopScheduling);
 
     await svc.getAgenda(TENANT, DATE);
 
@@ -304,7 +308,7 @@ describe('CommerceService.getAgenda', () => {
       find: jest.fn().mockResolvedValue([]),
       getConnection: () => conn,
     } as unknown as EntityManager;
-    const svc = new CommerceService(em, noopPayments);
+    const svc = new CommerceService(em, noopPayments, noopScheduling);
 
     await svc.getAgenda(TENANT, DATE);
 
@@ -329,7 +333,7 @@ describe('CommerceService.getAgenda', () => {
       scheduleRows: [],
       staffUsers: [],
     });
-    const svc = new CommerceService(em, noopPayments);
+    const svc = new CommerceService(em, noopPayments, noopScheduling);
 
     const result = await svc.getAgenda(TENANT, DATE);
 

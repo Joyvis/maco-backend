@@ -1,6 +1,7 @@
 import { EntityManager } from '@mikro-orm/core';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PaymentsService } from '@payments/payments.service';
+import { SchedulingService } from '@scheduling/scheduling.service';
 
 import { CommerceController } from './commerce.controller';
 import { CommerceService } from './commerce.service';
@@ -15,6 +16,7 @@ describe('CommerceController', () => {
         CommerceService,
         { provide: EntityManager, useValue: {} },
         { provide: PaymentsService, useValue: {} },
+        { provide: SchedulingService, useValue: {} },
       ],
     }).compile();
 
