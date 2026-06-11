@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { QualifiedStaff } from '@scheduling/dto/availability.dto';
 import { CurrentUser } from '@tenancy/auth/current-user.decorator';
 import { RequestUser } from '@tenancy/auth/jwt-payload.interface';
 import { Roles } from '@tenancy/auth/roles.decorator';
@@ -19,6 +20,7 @@ import { CommerceService } from './commerce.service';
 import { AgendaQueryDto } from './dto/agenda-query.dto';
 import { AgendaResponseDto } from './dto/agenda-response.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
+import { ChangeStaffDto } from './dto/change-staff.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { RescheduleOrderDto } from './dto/reschedule-order.dto';
@@ -159,6 +161,42 @@ export class CommerceController {
     @CurrentUser() user: RequestUser,
   ): Promise<{ data: SaleOrderResponseDto }> {
     const data = await this.commerceService.noShow(user.tenantId, user.id, id);
+    return { data };
+  }
+
+  @Get('sale-orders/:id/eligible-staff')
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'ta')
+  async listEligibleStaff(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query('from_staff_id', new ParseUUIDPipe()) fromStaffId: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<{ data: QualifiedStaff[] }> {
+    const data = await this.commerceService.listEligibleStaffForChange(
+      user.tenantId,
+      id,
+      fromStaffId,
+    );
+    return { data };
+  }
+
+  @Post('sale-orders/:id/change-staff')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'ta')
+  async changeStaff(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: ChangeStaffDto,
+    @CurrentUser() user: RequestUser,
+  ): Promise<{ data: SaleOrderResponseDto }> {
+    const data = await this.commerceService.changeStaff(
+      user.tenantId,
+      user.id,
+      user.roles,
+      id,
+      dto.from_staff_id,
+      dto.staff_id,
+    );
     return { data };
   }
 

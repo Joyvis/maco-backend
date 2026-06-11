@@ -44,7 +44,7 @@ export class SchedulingService {
   async getQualifiedStaff(
     tenantId: string,
     serviceId: string,
-    filter?: { date: string; start_time: string },
+    filter?: { date: string; start_time: string; excludeOrderId?: string },
   ): Promise<QualifiedStaff[]> {
     const service = await this.em.findOne(
       Service,
@@ -71,7 +71,13 @@ export class SchedulingService {
 
       const staffIds = users.map((u) => u.id);
       const schedules = await this.loadSchedules(tenantId, staffIds);
-      const orders = await this.loadOrderSlots(tenantId, staffIds, rangeStart, rangeEnd);
+      const orders = await this.loadOrderSlots(
+        tenantId,
+        staffIds,
+        rangeStart,
+        rangeEnd,
+        filter.excludeOrderId,
+      );
 
       availableUsers = users.filter((u) =>
         isStaffAvailable(u.id, slotStart, slotEnd, schedules, orders),
@@ -148,6 +154,58 @@ export class SchedulingService {
       available: eligible.length > 0,
       eligible_staff_ids: eligible,
     };
+  }
+
+  // Eligible staff to TAKE OVER an order's slot: qualified for every service
+  // in `serviceIds` AND free across the order's full [slotStart, slotEnd]
+  // window. `excludeOrderId` removes the order being modified from the
+  // conflict check (otherwise its own currently-assigned staff would always
+  // look busy). Used by `POST /sale-orders/:id/change-staff` to populate the
+  // swap dropdown without leaking unqualified or double-booked options.
+  async getEligibleStaffForSlot(
+    tenantId: string,
+    serviceIds: string[],
+    slotStart: Date,
+    slotEnd: Date,
+    excludeOrderId?: string,
+  ): Promise<QualifiedStaff[]> {
+    if (serviceIds.length === 0) return [];
+
+    const uniqueServiceIds = [...new Set(serviceIds)];
+    const qualifiedSets = await Promise.all(
+      uniqueServiceIds.map((sid) => this.qualifiedStaffIds(tenantId, sid)),
+    );
+    const intersection = qualifiedSets.reduce<Set<string>>((acc, ids, idx) => {
+      if (idx === 0) return new Set(ids);
+      return new Set(ids.filter((id) => acc.has(id)));
+    }, new Set());
+    if (intersection.size === 0) return [];
+
+    const users = await this.em.find(
+      User,
+      { id: { $in: [...intersection] }, tenant_id: tenantId, state: UserState.ACTIVE },
+      NO_TENANT_FILTER,
+    );
+    if (users.length === 0) return [];
+
+    const rangeStart = new Date(slotStart);
+    rangeStart.setUTCHours(0, 0, 0, 0);
+    const rangeEnd = new Date(rangeStart);
+    rangeEnd.setUTCDate(rangeEnd.getUTCDate() + 1);
+
+    const staffIds = users.map((u) => u.id);
+    const schedules = await this.loadSchedules(tenantId, staffIds);
+    const orders = await this.loadOrderSlots(
+      tenantId,
+      staffIds,
+      rangeStart,
+      rangeEnd,
+      excludeOrderId,
+    );
+
+    return users
+      .filter((u) => isStaffAvailable(u.id, slotStart, slotEnd, schedules, orders))
+      .map((u) => ({ user_id: u.id, name: u.full_name ?? '', email: u.email }));
   }
 
   async getPublicQualifiedStaff(

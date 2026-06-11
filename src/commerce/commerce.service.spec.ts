@@ -2,12 +2,16 @@ import { Service } from '@catalog/entities/service.entity';
 import { EntityManager } from '@mikro-orm/core';
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PaymentsService } from '@payments/payments.service';
+import { SchedulingService } from '@scheduling/scheduling.service';
 import { Tenant } from '@tenancy/entities/tenant.entity';
 
 import { CommerceService } from './commerce.service';
 import { SaleOrder, SaleOrderFulfillment, SaleOrderState } from './entities/sale-order.entity';
 
 const noopPayments = { startCheckout: jest.fn() } as unknown as PaymentsService;
+const noopScheduling = {
+  getEligibleStaffForSlot: jest.fn().mockResolvedValue([]),
+} as unknown as SchedulingService;
 
 // Regression: previously `commerce.service.ts` shared a module-level
 // `NO_TENANT_FILTER = { filters: { tenant: false } }` object across every
@@ -48,7 +52,11 @@ describe('CommerceService — populate option leak guard', () => {
     };
     fakeEm.transactional = jest.fn((cb: (em: unknown) => Promise<unknown>) => cb(fakeEm));
 
-    const service = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    const service = new CommerceService(
+      fakeEm as unknown as EntityManager,
+      noopPayments,
+      noopScheduling,
+    );
 
     await expect(
       service.createBooking('tenant-1', 'customer-1', {
@@ -100,6 +108,7 @@ describe('CommerceService — assertTransition', () => {
   const service = new CommerceService(
     { findOne: jest.fn(), flush: jest.fn() } as unknown as EntityManager,
     noopPayments,
+    noopScheduling,
   );
 
   it('does not throw when current state matches required from-state', () => {
@@ -121,7 +130,11 @@ describe('CommerceService — checkIn', () => {
   it('transitions confirmed → checked_in and sets checked_in_at', async () => {
     const order = makeOrder(SaleOrderState.CONFIRMED);
     const fakeEm = makeEm(order);
-    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(
+      fakeEm as unknown as EntityManager,
+      noopPayments,
+      noopScheduling,
+    );
 
     const result = await svc.checkIn('tenant-1', 'user-1', 'order-1');
 
@@ -133,21 +146,33 @@ describe('CommerceService — checkIn', () => {
 
   it('throws NotFoundException when order does not exist', async () => {
     const fakeEm = makeEm(null);
-    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(
+      fakeEm as unknown as EntityManager,
+      noopPayments,
+      noopScheduling,
+    );
     await expect(svc.checkIn('tenant-1', 'user-1', 'order-1')).rejects.toThrow(NotFoundException);
   });
 
   it('throws ConflictException when order is not in confirmed state', async () => {
     const order = makeOrder(SaleOrderState.CHECKED_IN);
     const fakeEm = makeEm(order);
-    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(
+      fakeEm as unknown as EntityManager,
+      noopPayments,
+      noopScheduling,
+    );
     await expect(svc.checkIn('tenant-1', 'user-1', 'order-1')).rejects.toThrow(ConflictException);
   });
 
   it('throws ConflictException for pending_payment state', async () => {
     const order = makeOrder(SaleOrderState.PENDING_PAYMENT);
     const fakeEm = makeEm(order);
-    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(
+      fakeEm as unknown as EntityManager,
+      noopPayments,
+      noopScheduling,
+    );
     await expect(svc.checkIn('tenant-1', 'user-1', 'order-1')).rejects.toThrow(ConflictException);
   });
 });
@@ -156,7 +181,11 @@ describe('CommerceService — start', () => {
   it('transitions checked_in → in_progress and sets started_at', async () => {
     const order = makeOrder(SaleOrderState.CHECKED_IN);
     const fakeEm = makeEm(order);
-    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(
+      fakeEm as unknown as EntityManager,
+      noopPayments,
+      noopScheduling,
+    );
 
     const result = await svc.start('tenant-1', 'user-1', 'order-1');
 
@@ -168,14 +197,22 @@ describe('CommerceService — start', () => {
 
   it('throws NotFoundException when order does not exist', async () => {
     const fakeEm = makeEm(null);
-    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(
+      fakeEm as unknown as EntityManager,
+      noopPayments,
+      noopScheduling,
+    );
     await expect(svc.start('tenant-1', 'user-1', 'order-1')).rejects.toThrow(NotFoundException);
   });
 
   it('throws ConflictException when order is not in checked_in state', async () => {
     const order = makeOrder(SaleOrderState.CONFIRMED);
     const fakeEm = makeEm(order);
-    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(
+      fakeEm as unknown as EntityManager,
+      noopPayments,
+      noopScheduling,
+    );
     await expect(svc.start('tenant-1', 'user-1', 'order-1')).rejects.toThrow(ConflictException);
   });
 });
@@ -184,7 +221,11 @@ describe('CommerceService — complete', () => {
   it('transitions in_progress → pending_checkout and sets completed_service_at', async () => {
     const order = makeOrder(SaleOrderState.IN_PROGRESS);
     const fakeEm = makeEm(order);
-    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(
+      fakeEm as unknown as EntityManager,
+      noopPayments,
+      noopScheduling,
+    );
 
     const result = await svc.complete('tenant-1', 'user-1', 'order-1');
 
@@ -196,14 +237,22 @@ describe('CommerceService — complete', () => {
 
   it('throws NotFoundException when order does not exist', async () => {
     const fakeEm = makeEm(null);
-    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(
+      fakeEm as unknown as EntityManager,
+      noopPayments,
+      noopScheduling,
+    );
     await expect(svc.complete('tenant-1', 'user-1', 'order-1')).rejects.toThrow(NotFoundException);
   });
 
   it('throws ConflictException when order is not in in_progress state', async () => {
     const order = makeOrder(SaleOrderState.CHECKED_IN);
     const fakeEm = makeEm(order);
-    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(
+      fakeEm as unknown as EntityManager,
+      noopPayments,
+      noopScheduling,
+    );
     await expect(svc.complete('tenant-1', 'user-1', 'order-1')).rejects.toThrow(ConflictException);
   });
 });
@@ -212,7 +261,11 @@ describe('CommerceService — noShow', () => {
   it('transitions confirmed → no_show and sets no_show_at', async () => {
     const order = makeOrder(SaleOrderState.CONFIRMED);
     const fakeEm = makeEm(order);
-    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(
+      fakeEm as unknown as EntityManager,
+      noopPayments,
+      noopScheduling,
+    );
 
     const result = await svc.noShow('tenant-1', 'user-1', 'order-1');
 
@@ -224,14 +277,22 @@ describe('CommerceService — noShow', () => {
 
   it('throws NotFoundException when order does not exist', async () => {
     const fakeEm = makeEm(null);
-    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(
+      fakeEm as unknown as EntityManager,
+      noopPayments,
+      noopScheduling,
+    );
     await expect(svc.noShow('tenant-1', 'user-1', 'order-1')).rejects.toThrow(NotFoundException);
   });
 
   it('throws ConflictException when order is not in confirmed state', async () => {
     const order = makeOrder(SaleOrderState.IN_PROGRESS);
     const fakeEm = makeEm(order);
-    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(
+      fakeEm as unknown as EntityManager,
+      noopPayments,
+      noopScheduling,
+    );
     await expect(svc.noShow('tenant-1', 'user-1', 'order-1')).rejects.toThrow(ConflictException);
   });
 });
@@ -246,7 +307,11 @@ describe('CommerceService — cancelOrder authorization', () => {
   it('allows the owning customer to cancel', async () => {
     const order = makeCancelableOrder();
     const fakeEm = makeEm(order);
-    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(
+      fakeEm as unknown as EntityManager,
+      noopPayments,
+      noopScheduling,
+    );
 
     await svc.cancelOrder('tenant-1', 'customer-1', ['customer'], 'order-1', {
       reason: 'changed mind',
@@ -259,7 +324,11 @@ describe('CommerceService — cancelOrder authorization', () => {
   it('rejects a different customer with ForbiddenException', async () => {
     const order = makeCancelableOrder();
     const fakeEm = makeEm(order);
-    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(
+      fakeEm as unknown as EntityManager,
+      noopPayments,
+      noopScheduling,
+    );
 
     await expect(
       svc.cancelOrder('tenant-1', 'customer-2', ['customer'], 'order-1', { reason: 'x' }),
@@ -270,7 +339,11 @@ describe('CommerceService — cancelOrder authorization', () => {
   it('allows a receptionist (ta role) to cancel any order in the tenant', async () => {
     const order = makeCancelableOrder();
     const fakeEm = makeEm(order);
-    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(
+      fakeEm as unknown as EntityManager,
+      noopPayments,
+      noopScheduling,
+    );
 
     await svc.cancelOrder('tenant-1', 'receptionist-1', ['ta'], 'order-1', { reason: 'no-show' });
 
@@ -280,7 +353,11 @@ describe('CommerceService — cancelOrder authorization', () => {
   it('allows an owner to cancel any order in the tenant', async () => {
     const order = makeCancelableOrder();
     const fakeEm = makeEm(order);
-    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(
+      fakeEm as unknown as EntityManager,
+      noopPayments,
+      noopScheduling,
+    );
 
     await svc.cancelOrder('tenant-1', 'owner-1', ['owner'], 'order-1', { reason: 'manual' });
 
@@ -311,7 +388,7 @@ describe('CommerceService — rescheduleOrder authorization', () => {
   it('allows the owning customer to reschedule', async () => {
     const order = makeReschedulableOrder();
     const { em, execute } = makeRescheduleEm(order);
-    const svc = new CommerceService(em as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(em as unknown as EntityManager, noopPayments, noopScheduling);
 
     await svc.rescheduleOrder('tenant-1', 'customer-1', ['customer'], 'order-1', dto);
 
@@ -322,7 +399,7 @@ describe('CommerceService — rescheduleOrder authorization', () => {
   it('rejects a different customer with ForbiddenException', async () => {
     const order = makeReschedulableOrder();
     const { em, execute } = makeRescheduleEm(order);
-    const svc = new CommerceService(em as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(em as unknown as EntityManager, noopPayments, noopScheduling);
 
     await expect(
       svc.rescheduleOrder('tenant-1', 'customer-2', ['customer'], 'order-1', dto),
@@ -333,7 +410,7 @@ describe('CommerceService — rescheduleOrder authorization', () => {
   it('allows a receptionist (ta role) to reschedule any order in the tenant', async () => {
     const order = makeReschedulableOrder();
     const { em, execute } = makeRescheduleEm(order);
-    const svc = new CommerceService(em as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(em as unknown as EntityManager, noopPayments, noopScheduling);
 
     await svc.rescheduleOrder('tenant-1', 'receptionist-1', ['ta'], 'order-1', dto);
 
@@ -344,7 +421,7 @@ describe('CommerceService — rescheduleOrder authorization', () => {
   it('allows an owner to reschedule any order in the tenant', async () => {
     const order = makeReschedulableOrder();
     const { em, execute } = makeRescheduleEm(order);
-    const svc = new CommerceService(em as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(em as unknown as EntityManager, noopPayments, noopScheduling);
 
     await svc.rescheduleOrder('tenant-1', 'owner-1', ['owner'], 'order-1', dto);
 
@@ -356,7 +433,11 @@ describe('CommerceService — full happy-path flow', () => {
   it('confirmed → checked_in → in_progress → pending_checkout', async () => {
     const order = makeOrder(SaleOrderState.CONFIRMED);
     const fakeEm = makeEm(order);
-    const svc = new CommerceService(fakeEm as unknown as EntityManager, noopPayments);
+    const svc = new CommerceService(
+      fakeEm as unknown as EntityManager,
+      noopPayments,
+      noopScheduling,
+    );
 
     await svc.checkIn('tenant-1', 'user-1', 'order-1');
     expect(order.state).toBe(SaleOrderState.CHECKED_IN);

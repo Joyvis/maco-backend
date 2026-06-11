@@ -14,6 +14,8 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { PaymentsService } from '@payments/payments.service';
+import { QualifiedStaff } from '@scheduling/dto/availability.dto';
+import { SchedulingService } from '@scheduling/scheduling.service';
 import { StaffQualification } from '@tenancy/entities/staff-qualification.entity';
 import { TenantConfig } from '@tenancy/entities/tenant-config.entity';
 import { Tenant } from '@tenancy/entities/tenant.entity';
@@ -106,6 +108,7 @@ export class CommerceService {
   constructor(
     private readonly em: EntityManager,
     private readonly paymentsService: PaymentsService,
+    private readonly schedulingService: SchedulingService,
   ) {}
 
   async createBooking(
@@ -428,6 +431,163 @@ export class CommerceService {
     order.no_show_at = new Date();
     await this.em.flush();
     return this.toOrderDto(order);
+  }
+
+  // Staff swap candidates for one agenda block — the items currently assigned
+  // to `fromStaffId`. Intersects "qualified for THAT subset of services" with
+  // "free across the subset's slot window", excluding the order itself from
+  // the conflict scan (otherwise the source staff would always look busy) and
+  // every staff currently holding ANY of the subset's items from the result
+  // (a no-op swap is not a swap). Returns an empty list when the source staff
+  // has no service items on this order.
+  async listEligibleStaffForChange(
+    tenantId: string,
+    orderId: string,
+    fromStaffId: string,
+  ): Promise<QualifiedStaff[]> {
+    const order = await this.loadOrderForStaffChange(tenantId, orderId);
+    const sourceItems = this.serviceItemsAssignedTo(order, fromStaffId);
+    if (sourceItems.length === 0) return [];
+
+    const window = this.itemsSlotWindow(order, sourceItems);
+    const serviceIds = this.itemsServiceIds(sourceItems);
+    const currentStaffIds = this.itemsAssignedStaffIds(sourceItems);
+
+    const eligible = await this.schedulingService.getEligibleStaffForSlot(
+      tenantId,
+      serviceIds,
+      window.start,
+      window.end,
+      orderId,
+    );
+    return eligible.filter((s) => !currentStaffIds.has(s.user_id));
+  }
+
+  // Reassign only the service items currently held by `fromStaffId` to
+  // `staffId` — items belonging to other staff on the same multi-staff order
+  // are untouched. Qualification + availability are validated against that
+  // subset only (the target may legitimately not be qualified for items on
+  // OTHER staff of the order). The order-level `staff` mirror only follows
+  // when the source staff was the mirrored one.
+  async changeStaff(
+    tenantId: string,
+    callerId: string,
+    callerRoles: readonly string[],
+    orderId: string,
+    fromStaffId: string,
+    staffId: string,
+  ): Promise<SaleOrderResponseDto> {
+    if (!isStaff(callerRoles)) {
+      throw new ForbiddenException('Only staff can change appointment professional');
+    }
+    if (fromStaffId === staffId) {
+      throw new BadRequestException('Source and target staff must differ');
+    }
+
+    const order = await this.loadOrderForStaffChange(tenantId, orderId);
+    if (!ACTIVE_BOOKING_STATES.includes(order.state)) {
+      throw new BadRequestException('Order cannot be modified in its current state');
+    }
+
+    const sourceItems = this.serviceItemsAssignedTo(order, fromStaffId);
+    if (sourceItems.length === 0) {
+      throw new BadRequestException('Source staff has no service items on this order');
+    }
+
+    const window = this.itemsSlotWindow(order, sourceItems);
+    const serviceIds = this.itemsServiceIds(sourceItems);
+
+    const eligible = await this.schedulingService.getEligibleStaffForSlot(
+      tenantId,
+      serviceIds,
+      window.start,
+      window.end,
+      orderId,
+    );
+    if (!eligible.some((s) => s.user_id === staffId)) {
+      throw new UnprocessableEntityException(
+        'Staff is not qualified or not available for this slot',
+      );
+    }
+
+    const staff = this.em.getReference(User, staffId);
+    for (const item of sourceItems) {
+      item.assigned_staff = staff;
+    }
+    if (order.staff?.id === fromStaffId) {
+      order.staff = staff;
+    }
+    await this.em.flush();
+    return this.toOrderDto(order);
+  }
+
+  private async loadOrderForStaffChange(tenantId: string, orderId: string): Promise<SaleOrder> {
+    const order = await this.em.findOne(
+      SaleOrder,
+      { id: orderId, tenant_id: tenantId },
+      {
+        // `items.service` is not in ORDER_POPULATE (existing callers don't
+        // need it), but the swap path reads each item's service to compute
+        // the qualified-staff intersection.
+        populate: [...ORDER_POPULATE, 'items.service'],
+        ...noTenantFilter(),
+      },
+    );
+    if (!order) throw new NotFoundException('Order not found');
+    return order;
+  }
+
+  // Service items on `order` currently held by `staffId`. The order-level
+  // `staff_id` mirror is consulted as a fallback for legacy items whose own
+  // `assigned_staff` was never set (pre-multi-staff bookings).
+  private serviceItemsAssignedTo(order: SaleOrder, staffId: string): SaleOrderItem[] {
+    const matches: SaleOrderItem[] = [];
+    for (const item of order.items.getItems()) {
+      if (item.catalog_item_type !== SaleOrderItemType.SERVICE) continue;
+      const effective = item.assigned_staff?.id ?? order.staff?.id ?? null;
+      if (effective === staffId) matches.push(item);
+    }
+    return matches;
+  }
+
+  private itemsServiceIds(items: SaleOrderItem[]): string[] {
+    const ids: string[] = [];
+    for (const item of items) {
+      if (item.service) ids.push(item.service.id);
+    }
+    return ids;
+  }
+
+  private itemsAssignedStaffIds(items: SaleOrderItem[]): Set<string> {
+    const ids = new Set<string>();
+    for (const item of items) {
+      if (item.assigned_staff) ids.add(item.assigned_staff.id);
+    }
+    return ids;
+  }
+
+  // Slot window across `items`: MIN(slot_start_at) → MAX(slot_end_at), falling
+  // back to the order-level scheduled_at/end_at for legacy items that
+  // pre-date per-item slots.
+  private itemsSlotWindow(order: SaleOrder, items: SaleOrderItem[]): { start: Date; end: Date } {
+    const starts: Date[] = [];
+    const ends: Date[] = [];
+    for (const item of items) {
+      if (item.slot_start_at) starts.push(item.slot_start_at);
+      if (item.slot_end_at) ends.push(item.slot_end_at);
+    }
+    const start =
+      starts.length > 0
+        ? new Date(Math.min(...starts.map((d) => d.getTime())))
+        : order.scheduled_at;
+    const end =
+      ends.length > 0
+        ? new Date(Math.max(...ends.map((d) => d.getTime())))
+        : order.scheduled_end_at;
+    if (!start || !end) {
+      throw new BadRequestException('Order has no scheduled window');
+    }
+    return { start, end };
   }
 
   async listRefundPolicies(tenantId: string): Promise<RefundPolicyDto[]> {
