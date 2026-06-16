@@ -1077,6 +1077,18 @@ export class CommerceService {
       item.quantity = 1;
       item.price = line.unitPrice.toFixed(2);
       item.combo_components = line.snapshot;
+      // Combo items expose their own slot window so the agenda can place the
+      // block at the combo's actual start — not at the earliest dependency,
+      // which may sit mid-combo (e.g. a wash that runs before the second
+      // service). Derived from the service components since products inside
+      // a combo have no time window.
+      const serviceComponents = line.components.filter(
+        (c): c is ResolvedComboServiceComponent => 'service' in c,
+      );
+      if (serviceComponents.length > 0) {
+        item.slot_start_at = serviceComponents[0].slotStart;
+        item.slot_end_at = serviceComponents[serviceComponents.length - 1].slotEnd;
+      }
       em.persist(item);
       for (const c of line.components) {
         if ('service' in c) {
@@ -1231,19 +1243,33 @@ function toAppointmentDtoForItems(order: SaleOrder, items: SaleOrderItem[]): Age
     .filter((n): n is string => Boolean(n))
     .join(', ');
 
+  // Per-column block window: the slot range of THIS staff column's items.
+  // Used by the agenda grid for block positioning and sizing. Falls back to
+  // the order-level scheduled times for legacy non-cart bookings that don't
+  // set per-item slot fields.
   const slotStarts = items.map((i) => i.slot_start_at).filter((d): d is Date => Boolean(d));
   const slotEnds = items.map((i) => i.slot_end_at).filter((d): d is Date => Boolean(d));
 
-  const startAt =
+  const blockStart =
     slotStarts.length > 0
       ? new Date(Math.min(...slotStarts.map((d) => d.getTime())))
       : order.scheduled_at!;
-  const endAt =
+  const blockEnd =
     slotEnds.length > 0
       ? new Date(Math.max(...slotEnds.map((d) => d.getTime())))
       : (order.scheduled_end_at ?? null);
+  const blockDurationMinutes = blockEnd
+    ? Math.round((blockEnd.getTime() - blockStart.getTime()) / 60_000)
+    : null;
 
-  const durationMinutes = endAt ? Math.round((endAt.getTime() - startAt.getTime()) / 60_000) : null;
+  // Canonical order-level times: the customer-facing "this appointment is at
+  // 09:00". Consistent with `/sale-orders` for the same order id. Used by the
+  // detail sheet so every staff column shows the same start.
+  const orderStart = order.scheduled_at!;
+  const orderEnd = order.scheduled_end_at ?? null;
+  const orderDurationMinutes = orderEnd
+    ? Math.round((orderEnd.getTime() - orderStart.getTime()) / 60_000)
+    : null;
 
   return {
     id: order.id,
@@ -1251,9 +1277,12 @@ function toAppointmentDtoForItems(order: SaleOrder, items: SaleOrderItem[]): Age
     customer_phone: order.customer.phone ?? null,
     customer_email: order.customer.email,
     services: serviceNames,
-    scheduled_start_at: startAt.toISOString(),
-    scheduled_end_at: endAt?.toISOString() ?? null,
-    duration_minutes: durationMinutes,
+    scheduled_start_at: orderStart.toISOString(),
+    scheduled_end_at: orderEnd?.toISOString() ?? null,
+    duration_minutes: orderDurationMinutes,
+    block_start_at: blockStart.toISOString(),
+    block_end_at: blockEnd?.toISOString() ?? null,
+    block_duration_minutes: blockDurationMinutes,
     state: order.state,
     total: Number(order.total_amount),
     booking_channel: order.booking_channel ?? null,
