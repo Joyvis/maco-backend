@@ -5,8 +5,8 @@
 // depends on (matching total, deps as `is_dependency: true` rows,
 // dep de-dup against combo-covered services, batched staff-name lookup).
 
-import { Combo, ComboStatus } from '@catalog/entities/combo.entity';
 import { ComboItem, ComboItemType } from '@catalog/entities/combo-item.entity';
+import { Combo, ComboStatus } from '@catalog/entities/combo.entity';
 import { Product, ProductStatus } from '@catalog/entities/product.entity';
 import { ServiceDependency } from '@catalog/entities/service-dependency.entity';
 import { Service, ServiceStatus } from '@catalog/entities/service.entity';
@@ -57,10 +57,7 @@ function makeProduct(id: string, name: string, basePrice: string): Product {
   return p;
 }
 
-function makeComboItem(
-  type: ComboItemType,
-  entity: Service | Product,
-): ComboItem {
+function makeComboItem(type: ComboItemType, entity: Service | Product): ComboItem {
   const ci = new ComboItem();
   ci.tenant_id = TENANT_ID;
   ci.item_type = type;
@@ -108,38 +105,38 @@ function buildFakeEm(opts: {
   depsByServiceId?: Record<string, ServiceDependency[]>;
   staffById?: Record<string, User>;
 }): EntityManager {
-  const findOne = jest.fn(async (entity: unknown, where: Record<string, unknown>) => {
-    if (entity === Tenant) return { id: TENANT_ID } as Tenant;
-    if (entity === User) return { id: where.id } as User;
+  const findOne = jest.fn((entity: unknown, where: Record<string, unknown>) => {
+    if (entity === Tenant) return Promise.resolve({ id: TENANT_ID } as Tenant);
+    if (entity === User) return Promise.resolve({ id: where.id } as User);
     if (entity === Service) {
       const id = where.id as string;
-      return opts.serviceById?.[id] ?? null;
+      return Promise.resolve(opts.serviceById?.[id] ?? null);
     }
     if (entity === Product) {
       const id = where.id as string;
-      return opts.productById?.[id] ?? null;
+      return Promise.resolve(opts.productById?.[id] ?? null);
     }
     if (entity === Combo) {
       const id = where.id as string;
-      return opts.comboById?.[id] ?? null;
+      return Promise.resolve(opts.comboById?.[id] ?? null);
     }
-    return null;
+    return Promise.resolve(null);
   });
 
-  const find = jest.fn(async (entity: unknown, where: Record<string, unknown>) => {
+  const find = jest.fn((entity: unknown, where: Record<string, unknown>) => {
     if (entity === ServiceDependency) {
       const serviceId = where.service as string;
-      return opts.depsByServiceId?.[serviceId] ?? [];
+      return Promise.resolve(opts.depsByServiceId?.[serviceId] ?? []);
     }
     if (entity === User) {
       // batched staff name lookup: where.id is { $in: [...] }
       const inClause = where.id as { $in?: string[] } | undefined;
       const ids = inClause?.$in ?? [];
-      return ids
-        .map((id) => opts.staffById?.[id])
-        .filter((u): u is User => Boolean(u));
+      return Promise.resolve(
+        ids.map((id) => opts.staffById?.[id]).filter((u): u is User => Boolean(u)),
+      );
     }
-    return [];
+    return Promise.resolve([]);
   });
 
   return {
