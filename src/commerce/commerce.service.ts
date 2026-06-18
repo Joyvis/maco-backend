@@ -36,6 +36,8 @@ import {
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { RescheduleOrderDto } from './dto/reschedule-order.dto';
 import {
+  BookingQuoteDto,
+  BookingQuoteLineDto,
   BookingResultDto,
   RefundPolicyDto,
   SaleOrderItemDto,
@@ -103,6 +105,13 @@ interface ResolvedComboLine {
 
 type ResolvedLine = ResolvedServiceLine | ResolvedProductLine | ResolvedComboLine;
 
+interface ResolvedAutoIncludeDep {
+  dependencyService: Service;
+  slotStart: Date;
+  slotEnd: Date;
+  assignedStaffId?: string;
+}
+
 @Injectable()
 export class CommerceService {
   constructor(
@@ -117,19 +126,7 @@ export class CommerceService {
     dto: CreateBookingDto,
   ): Promise<BookingResultDto> {
     const normalized = await this.normalizeBookingDto(tenantId, dto);
-
-    if (normalized.fulfillment === SaleOrderFulfillment.APPOINTMENT) {
-      if (!normalized.scheduledStartAt) {
-        throw new BadRequestException('scheduled_start_at is required for appointment fulfillment');
-      }
-    } else {
-      if (normalized.scheduledStartAt) {
-        throw new BadRequestException('scheduled_start_at must not be set for pickup fulfillment');
-      }
-      if (normalized.items.some((i) => i.catalog_item_type !== CreateBookingItemType.PRODUCT)) {
-        throw new BadRequestException('pickup orders may only contain products');
-      }
-    }
+    this.assertFulfillmentInvariants(normalized);
 
     try {
       return await this.em.transactional(async (em) => {
@@ -187,7 +184,16 @@ export class CommerceService {
         em.persist(order);
 
         for (const line of lines) {
-          await this.persistLine(em, tenantId, order, line);
+          this.persistLine(em, tenantId, order, line);
+        }
+
+        // Auto-include deps are resolved against the full line set so a dep
+        // already covered by the cart (e.g. Lavagem inside a combo) isn't
+        // persisted as a phantom row. This is the same list the quote
+        // endpoint returned to the FE.
+        const deps = await this.resolveAutoIncludeDepsForLines(em, tenantId, lines);
+        for (const dep of deps) {
+          this.persistAutoIncludeDep(em, tenantId, order, dep);
         }
 
         if (requiresPayment) {
@@ -212,6 +218,89 @@ export class CommerceService {
       }
       throw err;
     }
+  }
+
+  // Stateless price/duration preview for the booking review screen. Same
+  // pipeline as `createBooking` (normalize → resolveLines → auto-include
+  // deps), minus persistence — so the FE can render canonical totals on the
+  // confirmation step instead of computing them locally and risking drift
+  // against the value the user is then charged. The invariant is:
+  //   `quoteBooking(payload).total_amount === createBooking(payload).total_amount`.
+  // Read-only; no transaction. Honours the same validation errors so the FE
+  // can surface them before submit.
+  async quoteBooking(
+    tenantId: string,
+    customerId: string,
+    dto: CreateBookingDto,
+  ): Promise<BookingQuoteDto> {
+    const normalized = await this.normalizeBookingDto(tenantId, dto);
+    this.assertFulfillmentInvariants(normalized);
+
+    const customer = await this.em.findOne(
+      User,
+      { id: customerId, tenant_id: tenantId },
+      noTenantFilter(),
+    );
+    if (!customer) throw new ForbiddenException('Customer not in tenant');
+
+    const lines = await this.resolveLines(this.em, tenantId, normalized);
+
+    let hasService = false;
+    for (const line of lines) {
+      if (line.kind === 'service') hasService = true;
+      if (line.kind === 'combo' && line.components.some((c) => 'service' in c)) {
+        hasService = true;
+      }
+    }
+    if (normalized.fulfillment === SaleOrderFulfillment.APPOINTMENT && !hasService) {
+      throw new BadRequestException(
+        'appointment orders must contain at least one service or combo with a service',
+      );
+    }
+
+    const deps = await this.resolveAutoIncludeDepsForLines(this.em, tenantId, lines);
+
+    const staffNameById = await this.loadStaffNamesForQuote(tenantId, lines, deps);
+
+    const totalAmount = lines.reduce((acc, l) => acc + lineTotal(l), 0);
+    const totalDurationMinutes = sumLinesDuration(lines);
+    const scheduledEndAt =
+      normalized.fulfillment === SaleOrderFulfillment.APPOINTMENT && normalized.scheduledStartAt
+        ? computeAppointmentEnd(normalized.scheduledStartAt, lines)
+        : undefined;
+
+    const quoteLines: BookingQuoteLineDto[] = [];
+    for (const line of lines) {
+      quoteLines.push(toQuoteLine(line, staffNameById));
+    }
+    for (const dep of deps) {
+      quoteLines.push({
+        catalog_item_type: 'service',
+        catalog_item_id: dep.dependencyService.id,
+        name: dep.dependencyService.name,
+        quantity: 1,
+        unit_price: 0,
+        line_total: 0,
+        duration_minutes: dep.dependencyService.duration_minutes,
+        is_dependency: true,
+        assigned_staff_id: dep.assignedStaffId,
+        assigned_staff_name: dep.assignedStaffId
+          ? staffNameById.get(dep.assignedStaffId)
+          : undefined,
+        slot_start_at: dep.slotStart.toISOString(),
+        slot_end_at: dep.slotEnd.toISOString(),
+      });
+    }
+
+    return {
+      fulfillment:
+        normalized.fulfillment === SaleOrderFulfillment.APPOINTMENT ? 'appointment' : 'pickup',
+      scheduled_start_at: normalized.scheduledStartAt?.toISOString(),
+      scheduled_end_at: scheduledEndAt?.toISOString(),
+      total_duration_minutes: totalDurationMinutes,
+      total_amount: Number(totalAmount.toFixed(2)),
+      lines: quoteLines,
+    };
   }
 
   async listMyOrders(
@@ -714,6 +803,149 @@ export class CommerceService {
   // Private helpers
   // ─────────────────────────────────────────────────────────────────────────
 
+  private assertFulfillmentInvariants(normalized: {
+    fulfillment: SaleOrderFulfillment;
+    scheduledStartAt?: Date;
+    items: CreateBookingItemDto[];
+  }): void {
+    if (normalized.fulfillment === SaleOrderFulfillment.APPOINTMENT) {
+      if (!normalized.scheduledStartAt) {
+        throw new BadRequestException('scheduled_start_at is required for appointment fulfillment');
+      }
+    } else {
+      if (normalized.scheduledStartAt) {
+        throw new BadRequestException('scheduled_start_at must not be set for pickup fulfillment');
+      }
+      if (normalized.items.some((i) => i.catalog_item_type !== CreateBookingItemType.PRODUCT)) {
+        throw new BadRequestException('pickup orders may only contain products');
+      }
+    }
+  }
+
+  // Resolves the set of auto-include dependencies for these lines, de-duped
+  // against services the user already has (top-level service line OR combo
+  // service component) and against deps already collected for an earlier
+  // line. Used by both `quoteBooking` (render the deps as `incluído` rows)
+  // and `createBooking` (persist them at price=0) so the two views agree.
+  // Without de-dup, picking the "Corte + Lavagem" combo would surface a
+  // phantom "Lavagem (incluído)" row below the combo since Corte's
+  // auto-include dep points at the Lavagem service the combo already covers.
+  private async resolveAutoIncludeDepsForLines(
+    em: EntityManager,
+    tenantId: string,
+    lines: ResolvedLine[],
+  ): Promise<ResolvedAutoIncludeDep[]> {
+    const presentServiceIds = new Set<string>();
+    for (const line of lines) {
+      if (line.kind === 'service') {
+        presentServiceIds.add(line.service.id);
+      } else if (line.kind === 'combo') {
+        for (const c of line.components) {
+          if ('service' in c) presentServiceIds.add(c.service.id);
+        }
+      }
+    }
+
+    const out: ResolvedAutoIncludeDep[] = [];
+    const seenDepIds = new Set<string>();
+    for (const line of lines) {
+      if (line.kind === 'service') {
+        await this.collectAutoIncludeDeps(
+          em,
+          tenantId,
+          line.service.id,
+          line.slotStart,
+          line.slotEnd,
+          line.assignedStaffId,
+          presentServiceIds,
+          seenDepIds,
+          out,
+        );
+      } else if (line.kind === 'combo') {
+        for (const c of line.components) {
+          if ('service' in c) {
+            await this.collectAutoIncludeDeps(
+              em,
+              tenantId,
+              c.service.id,
+              c.slotStart,
+              c.slotEnd,
+              c.assignedStaffId,
+              presentServiceIds,
+              seenDepIds,
+              out,
+            );
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  // Batch-loads `full_name` for every staff id referenced by the lines + deps
+  // so the quote response can carry `assigned_staff_name` on each line in a
+  // single query. The map's absence on a key means "no name found" — render
+  // falls back to "Qualquer Disponível" on the FE.
+  private async loadStaffNamesForQuote(
+    tenantId: string,
+    lines: ResolvedLine[],
+    deps: ResolvedAutoIncludeDep[],
+  ): Promise<Map<string, string>> {
+    const ids = new Set<string>();
+    for (const line of lines) {
+      if (line.kind === 'service' && line.assignedStaffId) {
+        ids.add(line.assignedStaffId);
+      } else if (line.kind === 'combo') {
+        for (const c of line.components) {
+          if ('service' in c && c.assignedStaffId) ids.add(c.assignedStaffId);
+        }
+      }
+    }
+    for (const dep of deps) {
+      if (dep.assignedStaffId) ids.add(dep.assignedStaffId);
+    }
+    if (ids.size === 0) return new Map();
+    const users = await this.em.find(
+      User,
+      { id: { $in: [...ids] }, tenant_id: tenantId },
+      noTenantFilter(),
+    );
+    const map = new Map<string, string>();
+    for (const u of users) {
+      if (u.full_name) map.set(u.id, u.full_name);
+    }
+    return map;
+  }
+
+  private async collectAutoIncludeDeps(
+    em: EntityManager,
+    tenantId: string,
+    serviceId: string,
+    slotStart: Date,
+    slotEnd: Date,
+    assignedStaffId: string | undefined,
+    presentServiceIds: Set<string>,
+    seenDepIds: Set<string>,
+    out: ResolvedAutoIncludeDep[],
+  ): Promise<void> {
+    const deps = await em.find(
+      ServiceDependency,
+      { tenant_id: tenantId, service: serviceId, auto_include: true },
+      { populate: ['depends_on_service'], ...noTenantFilter() },
+    );
+    for (const dep of deps) {
+      const depId = dep.depends_on_service.id;
+      if (presentServiceIds.has(depId) || seenDepIds.has(depId)) continue;
+      seenDepIds.add(depId);
+      out.push({
+        dependencyService: dep.depends_on_service,
+        slotStart,
+        slotEnd,
+        assignedStaffId,
+      });
+    }
+  }
+
   assertTransition(order: SaleOrder, from: SaleOrderState, to: SaleOrderState): void {
     if (order.state !== from) {
       throw new ConflictException(
@@ -1027,12 +1259,12 @@ export class CommerceService {
     return itemLevelBusy.length === 0;
   }
 
-  private async persistLine(
+  private persistLine(
     em: EntityManager,
     tenantId: string,
     order: SaleOrder,
     line: ResolvedLine,
-  ): Promise<void> {
+  ): void {
     const item = new SaleOrderItem();
     item.tenant_id = tenantId;
     item.sale_order = order;
@@ -1052,15 +1284,6 @@ export class CommerceService {
         item.assigned_staff = staff;
       }
       em.persist(item);
-      await this.persistAutoIncludedDependencies(
-        em,
-        tenantId,
-        order,
-        line.service.id,
-        line.slotStart,
-        line.slotEnd,
-        line.assignedStaffId,
-      );
     } else if (line.kind === 'product') {
       item.catalog_item_type = SaleOrderItemType.PRODUCT;
       item.catalog_item_id = line.product.id;
@@ -1090,54 +1313,35 @@ export class CommerceService {
         item.slot_end_at = serviceComponents[serviceComponents.length - 1].slotEnd;
       }
       em.persist(item);
-      for (const c of line.components) {
-        if ('service' in c) {
-          await this.persistAutoIncludedDependencies(
-            em,
-            tenantId,
-            order,
-            c.service.id,
-            c.slotStart,
-            c.slotEnd,
-            c.assignedStaffId,
-          );
-        }
-      }
     }
   }
 
-  private async persistAutoIncludedDependencies(
+  // Persists ONE pre-resolved auto-include dep as a SaleOrderItem with
+  // price=0 and is_dependency=true. The dep list is built upstream by
+  // `resolveAutoIncludeDepsForLines`, which de-dupes against the user's own
+  // cart so we never write phantom rows for services the cart already covers.
+  private persistAutoIncludeDep(
     em: EntityManager,
     tenantId: string,
     order: SaleOrder,
-    serviceId: string,
-    slotStart: Date,
-    slotEnd: Date,
-    assignedStaffId: string | undefined,
-  ): Promise<void> {
-    const dependencies = await em.find(
-      ServiceDependency,
-      { tenant_id: tenantId, service: serviceId, auto_include: true },
-      { populate: ['depends_on_service'], ...noTenantFilter() },
-    );
-    for (const dep of dependencies) {
-      const item = new SaleOrderItem();
-      item.tenant_id = tenantId;
-      item.sale_order = order;
-      item.catalog_item_type = SaleOrderItemType.SERVICE;
-      item.catalog_item_id = dep.depends_on_service.id;
-      item.service = dep.depends_on_service;
-      item.name_snapshot = dep.depends_on_service.name;
-      item.quantity = 1;
-      item.price = '0.00';
-      item.is_dependency = true;
-      item.slot_start_at = slotStart;
-      item.slot_end_at = slotEnd;
-      if (assignedStaffId) {
-        item.assigned_staff = em.getReference(User, assignedStaffId);
-      }
-      em.persist(item);
+    dep: ResolvedAutoIncludeDep,
+  ): void {
+    const item = new SaleOrderItem();
+    item.tenant_id = tenantId;
+    item.sale_order = order;
+    item.catalog_item_type = SaleOrderItemType.SERVICE;
+    item.catalog_item_id = dep.dependencyService.id;
+    item.service = dep.dependencyService;
+    item.name_snapshot = dep.dependencyService.name;
+    item.quantity = 1;
+    item.price = '0.00';
+    item.is_dependency = true;
+    item.slot_start_at = dep.slotStart;
+    item.slot_end_at = dep.slotEnd;
+    if (dep.assignedStaffId) {
+      item.assigned_staff = em.getReference(User, dep.assignedStaffId);
     }
+    em.persist(item);
   }
 
   private toOrderDto(o: SaleOrder): SaleOrderResponseDto {
@@ -1212,6 +1416,79 @@ function findFirstService(
     }
   }
   return undefined;
+}
+
+function sumLinesDuration(lines: ResolvedLine[]): number {
+  let total = 0;
+  for (const line of lines) {
+    if (line.kind === 'service') total += line.durationMinutes;
+    else if (line.kind === 'combo') total += line.totalDurationMinutes;
+  }
+  return total;
+}
+
+function toQuoteLine(line: ResolvedLine, staffNameById: Map<string, string>): BookingQuoteLineDto {
+  if (line.kind === 'service') {
+    return {
+      catalog_item_type: 'service',
+      catalog_item_id: line.service.id,
+      name: line.service.name,
+      quantity: 1,
+      unit_price: line.unitPrice,
+      line_total: line.unitPrice,
+      duration_minutes: line.durationMinutes,
+      is_dependency: false,
+      assigned_staff_id: line.assignedStaffId,
+      assigned_staff_name: line.assignedStaffId
+        ? staffNameById.get(line.assignedStaffId)
+        : undefined,
+      slot_start_at: line.slotStart.toISOString(),
+      slot_end_at: line.slotEnd.toISOString(),
+    };
+  }
+  if (line.kind === 'product') {
+    return {
+      catalog_item_type: 'product',
+      catalog_item_id: line.product.id,
+      name: line.product.name,
+      quantity: line.quantity,
+      unit_price: line.unitPrice,
+      line_total: line.unitPrice * line.quantity,
+      duration_minutes: 0,
+      is_dependency: false,
+    };
+  }
+  const serviceComponents = line.components.filter(
+    (
+      c,
+    ): c is { service: Service } & {
+      durationMinutes: number;
+      basePrice: number;
+      slotStart: Date;
+      slotEnd: Date;
+      assignedStaffId?: string;
+    } => 'service' in c,
+  );
+  const slotStart = serviceComponents[0]?.slotStart;
+  const slotEnd = serviceComponents[serviceComponents.length - 1]?.slotEnd;
+  // All combo components share the cart line's `assigned_staff_id` (the user
+  // picks staff once per combo), so the first component's staff is the
+  // combo's staff for label purposes.
+  const comboStaffId = serviceComponents[0]?.assignedStaffId;
+  return {
+    catalog_item_type: 'combo',
+    catalog_item_id: line.combo.id,
+    name: line.combo.name,
+    quantity: 1,
+    unit_price: line.unitPrice,
+    line_total: line.unitPrice,
+    duration_minutes: line.totalDurationMinutes,
+    is_dependency: false,
+    assigned_staff_id: comboStaffId,
+    assigned_staff_name: comboStaffId ? staffNameById.get(comboStaffId) : undefined,
+    slot_start_at: slotStart?.toISOString(),
+    slot_end_at: slotEnd?.toISOString(),
+  };
 }
 
 function computeAppointmentEnd(start: Date, lines: ResolvedLine[]): Date {

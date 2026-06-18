@@ -24,7 +24,12 @@ import { ChangeStaffDto } from './dto/change-staff.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { RescheduleOrderDto } from './dto/reschedule-order.dto';
-import { BookingResultDto, RefundPolicyDto, SaleOrderResponseDto } from './dto/sale-order.dto';
+import {
+  BookingQuoteDto,
+  BookingResultDto,
+  RefundPolicyDto,
+  SaleOrderResponseDto,
+} from './dto/sale-order.dto';
 
 @Controller()
 export class CommerceController {
@@ -37,6 +42,21 @@ export class CommerceController {
     @CurrentUser() user: RequestUser,
   ): Promise<{ data: BookingResultDto }> {
     const data = await this.commerceService.createBooking(user.tenantId, user.id, dto);
+    return { data };
+  }
+
+  // Stateless price/duration preview for the booking review screen. Accepts
+  // the same payload as `POST sale-orders` and returns canonical totals + a
+  // line breakdown (including auto-include dependencies as price=0 lines).
+  // The FE renders these values verbatim so the confirmation total cannot
+  // drift from what the user is then charged.
+  @Post('sale-orders/quote')
+  @HttpCode(HttpStatus.OK)
+  async quoteBooking(
+    @Body() dto: CreateBookingDto,
+    @CurrentUser() user: RequestUser,
+  ): Promise<{ data: BookingQuoteDto }> {
+    const data = await this.commerceService.quoteBooking(user.tenantId, user.id, dto);
     return { data };
   }
 
