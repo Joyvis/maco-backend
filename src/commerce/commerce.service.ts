@@ -1514,9 +1514,21 @@ function trimTime(t: string): string {
 // a `slot_start_at` (legacy non-cart bookings) fall back to the order-level
 // `scheduled_at`/`scheduled_end_at` so the column still positions the block.
 function toAppointmentDtoForItems(order: SaleOrder, items: SaleOrderItem[]): AgendaAppointmentDto {
+  // Per-(staff, order) headline list. Includes top-level SERVICE and COMBO
+  // items — a multi-staff order with a combo on Bruno and a standalone
+  // service on Ana yields "Corte + Lavagem" on Bruno's block and "Corte
+  // Feminino" on Ana's. Dependency items (auto-included combo components)
+  // are excluded so combos appear as their headline name, not as a list of
+  // their constituents. Products are not staff-bound work and stay out of
+  // this list.
   const serviceNames = items
-    .filter((i) => i.catalog_item_type === SaleOrderItemType.SERVICE && !i.is_dependency)
-    .map((i) => i.name_snapshot ?? i.service?.name)
+    .filter(
+      (i) =>
+        (i.catalog_item_type === SaleOrderItemType.SERVICE ||
+          i.catalog_item_type === SaleOrderItemType.COMBO) &&
+        !i.is_dependency,
+    )
+    .map((i) => i.name_snapshot ?? i.service?.name ?? i.combo?.name)
     .filter((n): n is string => Boolean(n))
     .join(', ');
 
