@@ -215,6 +215,80 @@ describe('CommerceService.getAgenda', () => {
     expect(result.staff[0].appointments[0].services).toBe('Haircut');
   });
 
+  it('combo items appear in services field by their headline name (not as a list of constituents)', async () => {
+    // Cart line for a combo persists as one COMBO row with name_snapshot set
+    // to the combo's headline name, plus zero-or-more dependency SERVICE rows
+    // for the components. The agenda block on the staff doing the combo must
+    // show the combo's headline — never an empty string.
+    const comboItem = new SaleOrderItem();
+    comboItem.catalog_item_type = SaleOrderItemType.COMBO;
+    comboItem.is_dependency = false;
+    comboItem.name_snapshot = 'Corte + Lavagem';
+
+    const depService = new SaleOrderItem();
+    depService.catalog_item_type = SaleOrderItemType.SERVICE;
+    depService.is_dependency = true;
+    depService.service = { name: 'Lavagem (auto)' } as never;
+
+    const order = makeOrder('order-1', SaleOrderState.CONFIRMED, 'staff-1', [
+      comboItem,
+      depService,
+    ]);
+    const em = buildFakeEm({
+      orderIds: ['order-1'],
+      orders: [order],
+      scheduleRows: [{ user_id: 'staff-1', start_time: '09:00', end_time: '18:00' }],
+      staffUsers: [{ id: 'staff-1', full_name: 'Staff One' }],
+    });
+    const svc = new CommerceService(em, noopPayments, noopScheduling);
+
+    const result = await svc.getAgenda(TENANT, DATE);
+
+    expect(result.staff[0].appointments[0].services).toBe('Corte + Lavagem');
+  });
+
+  it('multi-staff order with combo on one staff and standalone service on another: each bucket carries its own headline', async () => {
+    // The screenshot bug: Bruno does the combo, Ana does the standalone
+    // service. The TA detail sheet must show "Corte + Lavagem" when opened
+    // from Bruno's column and "Corte Feminino" when opened from Ana's.
+    const comboBruno = new SaleOrderItem();
+    comboBruno.catalog_item_type = SaleOrderItemType.COMBO;
+    comboBruno.is_dependency = false;
+    comboBruno.name_snapshot = 'Corte + Lavagem';
+    comboBruno.assigned_staff = { id: 'bruno' } as never;
+
+    const serviceAna = new SaleOrderItem();
+    serviceAna.catalog_item_type = SaleOrderItemType.SERVICE;
+    serviceAna.is_dependency = false;
+    serviceAna.service = { name: 'Corte Feminino' } as never;
+    serviceAna.assigned_staff = { id: 'ana' } as never;
+
+    const order = makeOrder('order-1', SaleOrderState.CONFIRMED, undefined, [
+      comboBruno,
+      serviceAna,
+    ]);
+    const em = buildFakeEm({
+      orderIds: ['order-1'],
+      orders: [order],
+      scheduleRows: [
+        { user_id: 'bruno', start_time: '09:00', end_time: '18:00' },
+        { user_id: 'ana', start_time: '09:00', end_time: '18:00' },
+      ],
+      staffUsers: [
+        { id: 'bruno', full_name: 'Bruno Souza' },
+        { id: 'ana', full_name: 'Ana Silva' },
+      ],
+    });
+    const svc = new CommerceService(em, noopPayments, noopScheduling);
+
+    const result = await svc.getAgenda(TENANT, DATE);
+
+    const bruno = result.staff.find((s) => s.id === 'bruno')!;
+    const ana = result.staff.find((s) => s.id === 'ana')!;
+    expect(bruno.appointments[0].services).toBe('Corte + Lavagem');
+    expect(ana.appointments[0].services).toBe('Corte Feminino');
+  });
+
   it('drift staff (has order but no schedule) appears with null schedule fields', async () => {
     const order = makeOrder('order-1', SaleOrderState.CONFIRMED, 'staff-drift', [
       makeItem(SaleOrderItemType.SERVICE, 'Cut'),
