@@ -16,6 +16,7 @@ import {
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 
+import { AllowIncompleteProfile } from './auth/allow-incomplete-profile.decorator';
 import { CurrentUser } from './auth/current-user.decorator';
 import { RequestUser } from './auth/jwt-payload.interface';
 import { Roles } from './auth/roles.decorator';
@@ -156,6 +157,7 @@ export class UsersController {
   }
 
   @Get('me')
+  @AllowIncompleteProfile()
   async me(@CurrentUser() currentUser: RequestUser): Promise<UserMeDto> {
     const user = await this.userRepo.findOne(
       { id: currentUser.id, tenant_id: currentUser.tenantId },
@@ -198,6 +200,7 @@ export class UsersController {
   }
 
   @Patch('me')
+  @AllowIncompleteProfile()
   async updateMe(
     @Body() dto: UpdateMeDto,
     @CurrentUser() currentUser: RequestUser,

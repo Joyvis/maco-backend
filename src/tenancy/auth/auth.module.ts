@@ -17,6 +17,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { JwtStrategy } from './jwt.strategy';
+import { ProfileCompleteGuard } from './profile-complete.guard';
 
 @Module({
   imports: [
@@ -40,6 +41,12 @@ import { JwtStrategy } from './jwt.strategy';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    // Runs after JwtAuthGuard (declaration order): once the user is
+    // authenticated, blocks customers who have not yet set their name.
+    {
+      provide: APP_GUARD,
+      useClass: ProfileCompleteGuard,
     },
   ],
   exports: [AuthService],
