@@ -417,4 +417,50 @@ describe('CommerceService.getAgenda', () => {
       notes: null,
     });
   });
+
+  // Regression (TA / Recepção "half grid"): a staff's day is stored as multiple
+  // blocks (e.g. morning + afternoon split around lunch). The agenda window must
+  // span the whole working day — earliest start to latest end across all blocks
+  // — not collapse to whichever block happens to come first.
+  describe('multi-block daily schedule', () => {
+    it('spans the earliest start and latest end across all blocks', async () => {
+      const order = makeOrder('order-1', SaleOrderState.CONFIRMED, 'staff-1', [
+        makeItem(SaleOrderItemType.SERVICE, 'Haircut'),
+      ]);
+      const em = buildFakeEm({
+        orderIds: ['order-1'],
+        orders: [order],
+        // Afternoon block listed first to prove the result is order-independent.
+        scheduleRows: [
+          { user_id: 'staff-1', start_time: '13:00', end_time: '18:00' },
+          { user_id: 'staff-1', start_time: '09:00', end_time: '12:00' },
+        ],
+        staffUsers: [{ id: 'staff-1', full_name: 'Zé Barbeiro' }],
+      });
+      const svc = new CommerceService(em, noopPayments, noopScheduling);
+
+      const result = await svc.getAgenda(TENANT, DATE);
+
+      expect(result.staff[0].schedule_start).toBe('09:00');
+      expect(result.staff[0].schedule_end).toBe('18:00');
+    });
+
+    it('returns null bounds when a staff has no schedule block that day', async () => {
+      const order = makeOrder('order-1', SaleOrderState.CONFIRMED, 'staff-1', [
+        makeItem(SaleOrderItemType.SERVICE, 'Haircut'),
+      ]);
+      const em = buildFakeEm({
+        orderIds: ['order-1'],
+        orders: [order],
+        scheduleRows: [],
+        staffUsers: [{ id: 'staff-1', full_name: 'Zé Barbeiro' }],
+      });
+      const svc = new CommerceService(em, noopPayments, noopScheduling);
+
+      const result = await svc.getAgenda(TENANT, DATE);
+
+      expect(result.staff[0].schedule_start).toBeNull();
+      expect(result.staff[0].schedule_end).toBeNull();
+    });
+  });
 });

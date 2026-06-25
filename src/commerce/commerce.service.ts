@@ -775,7 +775,23 @@ export class CommerceService {
 
     const staff: AgendaStaffEntryDto[] = allStaffIds.map((staffId) => {
       const user = staffUsers.find((u) => u.id === staffId);
-      const schedule = scheduleRows.find((s) => s.user_id === staffId);
+      // A staff's day is stored as one or more schedule blocks (e.g. a morning
+      // and an afternoon split around lunch). The agenda window must span the
+      // whole working day, so aggregate the earliest start and latest end
+      // across every block — never just the first one, which would clip the
+      // grid to the morning and render it half-height.
+      const blocks = scheduleRows.filter((s) => s.user_id === staffId);
+      const scheduleStart =
+        blocks.length > 0
+          ? blocks.reduce(
+              (min, b) => (b.start_time < min ? b.start_time : min),
+              blocks[0].start_time,
+            )
+          : null;
+      const scheduleEnd =
+        blocks.length > 0
+          ? blocks.reduce((max, b) => (b.end_time > max ? b.end_time : max), blocks[0].end_time)
+          : null;
       const perOrder = itemBuckets.get(staffId);
       const appointments: AgendaAppointmentDto[] = perOrder
         ? [...perOrder.entries()].map(([orderId, items]) =>
@@ -785,8 +801,8 @@ export class CommerceService {
       return {
         id: staffId,
         name: user?.full_name ?? '',
-        schedule_start: schedule ? trimTime(schedule.start_time) : null,
-        schedule_end: schedule ? trimTime(schedule.end_time) : null,
+        schedule_start: scheduleStart ? trimTime(scheduleStart) : null,
+        schedule_end: scheduleEnd ? trimTime(scheduleEnd) : null,
         appointment_count: appointments.length,
         appointments,
       };
