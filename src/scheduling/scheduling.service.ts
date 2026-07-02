@@ -9,7 +9,10 @@ import { AvailabilityQueryDto } from './dto/availability-query.dto';
 import { AvailabilitySlot, QualifiedStaff, TimeSlot } from './dto/availability.dto';
 
 const NO_TENANT_FILTER = { filters: { tenant: false } } as const;
-const SLOT_GRID_MINUTES = 30;
+// 15-min grid so short services (e.g. 15-min) can start in sub-30-min gaps
+// left by other bookings; the duration-fit + overlap checks below keep longer
+// services from being offered starts they don't fit into.
+const SLOT_GRID_MINUTES = 15;
 
 interface ScheduleRow {
   user_id: string;
