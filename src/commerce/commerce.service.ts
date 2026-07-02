@@ -122,9 +122,19 @@ export class CommerceService {
 
   async createBooking(
     tenantId: string,
-    customerId: string,
+    requesterId: string,
     dto: CreateBookingDto,
+    requesterRoles: readonly string[] = [],
   ): Promise<BookingResultDto> {
+    // Staff (owner/ta) may book on behalf of a customer by sending
+    // `customer_id`; the order is then attached to that customer, not to the
+    // requester. Customers can only book for themselves.
+    const isOnBehalf = Boolean(dto.customer_id) && dto.customer_id !== requesterId;
+    if (isOnBehalf && !isStaff(requesterRoles)) {
+      throw new ForbiddenException('Only staff can book on behalf of a customer');
+    }
+    const customerId = dto.customer_id ?? requesterId;
+
     const normalized = await this.normalizeBookingDto(tenantId, dto);
     this.assertFulfillmentInvariants(normalized);
 
@@ -153,7 +163,11 @@ export class CommerceService {
         }
 
         const totalAmount = lines.reduce((acc, l) => acc + lineTotal(l), 0);
-        const requiresPayment = totalAmount > 0;
+        // Online checkout applies to self-service bookings only. Staff-created
+        // (on-behalf) bookings are settled in person through the existing
+        // completion flow (in_progress → pending_checkout), so they are
+        // confirmed immediately and never get a payment link.
+        const requiresPayment = totalAmount > 0 && !isOnBehalf;
 
         const order = new SaleOrder();
         order.tenant_id = tenantId;
@@ -208,6 +222,7 @@ export class CommerceService {
           id: order.id,
           requires_payment: requiresPayment,
           payment_url: order.payment_url,
+          scheduled_start_at: order.scheduled_at?.toISOString() ?? null,
           booking_channel: order.booking_channel ?? null,
           notes: order.notes ?? null,
         };

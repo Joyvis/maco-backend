@@ -80,6 +80,51 @@ describe('CommerceService — populate option leak guard', () => {
   });
 });
 
+describe('CommerceService — createBooking on-behalf authorization', () => {
+  const makeService = () =>
+    new CommerceService(
+      { findOne: jest.fn(), flush: jest.fn() } as unknown as EntityManager,
+      noopPayments,
+      noopScheduling,
+    );
+
+  const dto = {
+    fulfillment: 'appointment',
+    customer_id: 'someone-else',
+    scheduled_start_at: '2026-07-13T09:00:00.000Z',
+    items: [{ catalog_item_type: 'service', catalog_item_id: 'svc-1', quantity: 1 }],
+  } as never;
+
+  it('rejects customer_id from a plain customer with ForbiddenException', async () => {
+    await expect(
+      makeService().createBooking('tenant-1', 'requester-1', dto, ['customer']),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('rejects customer_id when no roles are provided (defensive default)', async () => {
+    await expect(makeService().createBooking('tenant-1', 'requester-1', dto)).rejects.toThrow(
+      ForbiddenException,
+    );
+  });
+
+  it.each([['owner'], ['ta']])('lets role %s past the gate for another customer', async (role) => {
+    // Passes the gate; fails later at the (empty-mock) persistence layer —
+    // any non-Forbidden error proves the authorization gate let it through.
+    await expect(
+      makeService().createBooking('tenant-1', 'requester-1', dto, [role]),
+    ).rejects.not.toThrow(ForbiddenException);
+  });
+
+  it('allows customer_id equal to the requester id regardless of roles', async () => {
+    // Passes the gate; fails later at the (empty-mock) tenant/service lookup —
+    // any non-Forbidden error proves the authorization gate let it through.
+    const selfDto = { ...(dto as Record<string, unknown>), customer_id: 'requester-1' } as never;
+    await expect(
+      makeService().createBooking('tenant-1', 'requester-1', selfDto, ['customer']),
+    ).rejects.not.toThrow(ForbiddenException);
+  });
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // State transition helpers
 // ─────────────────────────────────────────────────────────────────────────────
