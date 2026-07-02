@@ -26,6 +26,9 @@ export interface BookingResultDto {
   id: string;
   requires_payment: boolean;
   payment_url?: string;
+  // Canonical slot start (UTC ISO); null for pickup orders. The FE uses this
+  // for the post-create redirect instead of re-deriving the date locally.
+  scheduled_start_at: string | null;
   booking_channel: string | null;
   notes: string | null;
 }

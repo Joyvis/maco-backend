@@ -41,7 +41,7 @@ export class CommerceController {
     @Body() dto: CreateBookingDto,
     @CurrentUser() user: RequestUser,
   ): Promise<{ data: BookingResultDto }> {
-    const data = await this.commerceService.createBooking(user.tenantId, user.id, dto);
+    const data = await this.commerceService.createBooking(user.tenantId, user.id, dto, user.roles);
     return { data };
   }
 

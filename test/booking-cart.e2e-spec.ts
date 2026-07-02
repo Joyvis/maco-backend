@@ -54,6 +54,7 @@ async function signUpAndLogin(
 
 interface SeededShop {
   tenantId: string;
+  ownerToken: string;
   customerToken: string;
   customerId: string;
   shopSlug: string;
@@ -275,6 +276,7 @@ describe('Booking cart (e2e)', () => {
 
     return {
       tenantId: owner.tenantId,
+      ownerToken: owner.accessToken,
       customerToken: customerLoginToken,
       customerId: customerUserId,
       shopSlug: slug,
@@ -385,6 +387,81 @@ describe('Booking cart (e2e)', () => {
     expect(lineB.assigned_staff?.id).toBe(shop.staffB.id);
     expect(lineA.slot_start_at!.getTime()).toBe(startAt.getTime());
     expect(lineB.slot_start_at!.getTime()).toBe(startAt.getTime() + 30 * 60_000);
+  });
+
+  // ──────────────────────────────────────────────────────────
+  // POST /sale-orders — staff booking on behalf of a customer
+  // ──────────────────────────────────────────────────────────
+
+  it('POST /sale-orders with customer_id from an owner/ta books on behalf: order belongs to the customer, is confirmed, and returns scheduled_start_at', async () => {
+    const shop = await seedShop('onbehalf1');
+    const startAt = nextWeekdayAt(10);
+
+    const res = await request(app.getHttpServer())
+      .post('/sale-orders')
+      .set('Authorization', `Bearer ${shop.ownerToken}`)
+      .send({
+        fulfillment: 'appointment',
+        customer_id: shop.customerId,
+        scheduled_start_at: startAt.toISOString(),
+        booking_channel: 'phone',
+        items: [
+          {
+            catalog_item_type: 'service',
+            catalog_item_id: shop.serviceA.id,
+            quantity: 1,
+            assigned_staff_id: shop.staffA.id,
+          },
+        ],
+      })
+      .expect(201);
+
+    const body = res.body as {
+      data: {
+        id: string;
+        requires_payment: boolean;
+        payment_url?: string;
+        scheduled_start_at: string | null;
+      };
+    };
+    // Staff-created bookings settle in person — no online checkout.
+    expect(body.data.requires_payment).toBe(false);
+    expect(body.data.payment_url).toBeUndefined();
+    // Canonical slot start comes back so the FE can redirect without deriving.
+    expect(body.data.scheduled_start_at).toBe(startAt.toISOString());
+
+    const order = await em.findOne(
+      SaleOrder,
+      { id: body.data.id, tenant_id: shop.tenantId },
+      { filters: false, populate: ['customer'] },
+    );
+    expect(order).not.toBeNull();
+    // The order belongs to the selected customer, NOT to the requesting owner.
+    expect(order!.customer.id).toBe(shop.customerId);
+    expect(order!.state).toBe(SaleOrderState.CONFIRMED);
+  });
+
+  it('POST /sale-orders with customer_id from a customer token is rejected (403)', async () => {
+    const shop = await seedShop('onbehalf2');
+    const startAt = nextWeekdayAt(15);
+
+    await request(app.getHttpServer())
+      .post('/sale-orders')
+      .set('Authorization', `Bearer ${shop.customerToken}`)
+      .send({
+        fulfillment: 'appointment',
+        customer_id: shop.staffA.id, // someone else
+        scheduled_start_at: startAt.toISOString(),
+        items: [
+          {
+            catalog_item_type: 'service',
+            catalog_item_id: shop.serviceA.id,
+            quantity: 1,
+            assigned_staff_id: shop.staffA.id,
+          },
+        ],
+      })
+      .expect(403);
   });
 
   it('POST /sale-orders rejects when staff is not qualified', async () => {
